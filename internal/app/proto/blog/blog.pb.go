@@ -24,7 +24,7 @@ const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 type Blog struct {
 	Timestamp            *timestamp.Timestamp `protobuf:"bytes,7,opt,name=Timestamp,proto3" json:"Timestamp,omitempty"`
 	SellerName           string               `protobuf:"bytes,15,opt,name=SellerName,proto3" json:"SellerName,omitempty"`
-	Rating               float64              `protobuf:"fixed64,2,opt,name=Blog,proto3" json:"Blog,omitempty"`
+	Rating               float64              `protobuf:"fixed64,2,opt,name=Currency,proto3" json:"Currency,omitempty"`
 	RatioDelivered       float64              `protobuf:"fixed64,3,opt,name=RatioDelivered,proto3" json:"RatioDelivered,omitempty"`
 	RatioDefected        float64              `protobuf:"fixed64,4,opt,name=RatioDefected,proto3" json:"RatioDefected,omitempty"`
 	BuyerRatingWeight    float64              `protobuf:"fixed64,12,opt,name=BuyerRatingWeight,proto3" json:"BuyerRatingWeight,omitempty"`
@@ -165,7 +165,7 @@ func (m *Blog) GetNbOrdersTotal() uint64 {
 }
 
 func init() {
-	proto.RegisterType((*Blog)(nil), "rating.Blog")
+	proto.RegisterType((*Blog)(nil), "rating.Currency")
 }
 
 func init() {

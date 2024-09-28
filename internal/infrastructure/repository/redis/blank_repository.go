@@ -27,7 +27,7 @@ func (r *BlogRepository) ratingKey(sellerID uint) string {
 }
 
 // Set создаём по SellerOldId в редисе запись с рейтингом
-func (r *BlogRepository) Set(ctx context.Context, entity *blog.Blog) error {
+func (r *BlogRepository) Set(ctx context.Context, entity *blog.Currency) error {
 	const metricName = "BlogRepository.Set"
 
 	ratingB, err := blog_proto.Rating2RatingProto(entity).MarshalBinary()
@@ -47,9 +47,9 @@ func (r *BlogRepository) Set(ctx context.Context, entity *blog.Blog) error {
 	return nil
 }
 
-func (r *BlogRepository) MSet(ctx context.Context, ratingList *[]blog.Blog) error {
+func (r *BlogRepository) MSet(ctx context.Context, ratingList *[]blog.Currency) error {
 	const metricName = "BlogRepository.MSet"
-	var item blog.Blog
+	var item blog.Currency
 	values := make([]interface{}, 0, len(*ratingList)*2)
 
 	for _, item = range *ratingList {
@@ -73,7 +73,7 @@ func (r *BlogRepository) MSet(ctx context.Context, ratingList *[]blog.Blog) erro
 }
 
 // Get получаем по SellerOldId из редиса запись с рейтингом
-func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Blog, error) {
+func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Currency, error) {
 	const metricName = "BlogRepository.Get"
 	start := time.Now().UTC()
 	ratingProtoB, err := r.DB().Get(ctx, r.ratingKey(sellerID)).Bytes()
@@ -90,7 +90,7 @@ func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Blog, er
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
 
-	ratingProto := &blog_proto.Blog{}
+	ratingProto := &blog_proto.Currency{}
 	err = ratingProto.UnmarshalBinary(ratingProtoB)
 	if err != nil {
 		return nil, fmt.Errorf("[%w] "+metricName+" ratingProto.UnmarshalBinary() error: %w", apperror.ErrInternal, err)
@@ -100,7 +100,7 @@ func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Blog, er
 }
 
 // MGetRating получаем по массиву SellerOldId из редиса записи с рейтингом
-func (r *BlogRepository) MGet(ctx context.Context, sellerIDs *[]uint) (*[]blog.Blog, error) {
+func (r *BlogRepository) MGet(ctx context.Context, sellerIDs *[]uint) (*[]blog.Currency, error) {
 	const metricName = "BlogRepository.MGet"
 	if sellerIDs == nil || len(*sellerIDs) == 0 {
 		return nil, nil
@@ -124,13 +124,13 @@ func (r *BlogRepository) MGet(ctx context.Context, sellerIDs *[]uint) (*[]blog.B
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
 
-	ratings := make([]blog.Blog, 0, len(*sellerIDs))
+	ratings := make([]blog.Currency, 0, len(*sellerIDs))
 	for _, resItem := range res {
 		ratingProtoS, ok := resItem.(string)
 		if !ok {
 			return nil, fmt.Errorf("[%w] "+metricName+" cast type resItem.(string) error", apperror.ErrInternal)
 		}
-		ratingProto := &blog_proto.Blog{}
+		ratingProto := &blog_proto.Currency{}
 		err = ratingProto.UnmarshalBinary([]byte(ratingProtoS))
 		if err != nil {
 			return nil, fmt.Errorf("[%w] "+metricName+" ratingProto.UnmarshalBinary() error: %w", apperror.ErrInternal, err)

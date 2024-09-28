@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"info/internal/domain/concentration"
+	"info/internal/domain/price_and_cap"
 	"info/internal/integration"
 	"info/internal/pkg/config"
 	"log"
@@ -20,7 +22,9 @@ type App struct {
 }
 
 type Domain struct {
-	Blog *currency.Service
+	Currency      *currency.Service
+	PriceAndCap   *price_and_cap.Service
+	Concentration *concentration.Service
 }
 
 // New func is a constructor for the App
@@ -58,7 +62,9 @@ func New(ctx context.Context, cfg *config.Configuration) *App {
 
 func (app *App) SetupServices() {
 	app.Domain = &Domain{
-		Blog: currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB)),
+		Currency:      currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB)),
+		PriceAndCap:   price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB)),
+		Concentration: concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB)),
 	}
 }
 

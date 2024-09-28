@@ -90,7 +90,7 @@ func (a *RestAPI) buildHandler() {
 	r.Use(a.RecoverInterceptorMiddleware, a.SetResponseHeaderMiddleware("Content-Type", "application/json; charset=utf-8"), a.RequestIdInterceptorMiddleware, a.httpServerMetricMiddleware)
 	//api := r.Group("/api/v1")
 
-	//blogController := controller.NewBlogController(r, a.Domain.Blog)
+	//blogController := controller.NewBlogController(r, a.Domain.Currency)
 	//api.Get("/rating/<sellerID>", blogController.Get)
 
 	a.serverRestAPI.Handler = r.HandleRequest
