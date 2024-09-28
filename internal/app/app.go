@@ -7,7 +7,7 @@ import (
 	"info/internal/pkg/config"
 	"log"
 
-	"info/internal/domain/blog"
+	"info/internal/domain/currency"
 	"info/internal/infrastructure"
 	"info/internal/infrastructure/repository/tsdb_cluster"
 )
@@ -20,7 +20,7 @@ type App struct {
 }
 
 type Domain struct {
-	Blog *blog.Service
+	Blog *currency.Service
 }
 
 // New func is a constructor for the App
@@ -58,7 +58,7 @@ func New(ctx context.Context, cfg *config.Configuration) *App {
 
 func (app *App) SetupServices() {
 	app.Domain = &Domain{
-		Blog: blog.NewService(tsdb_cluster.NewBlogReplicaSet(app.Infra.TsDB)),
+		Blog: currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB)),
 	}
 }
 

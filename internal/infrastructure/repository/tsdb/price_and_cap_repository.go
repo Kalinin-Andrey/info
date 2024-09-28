@@ -6,44 +6,44 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"info/internal/domain/tag"
+	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"strings"
 	"time"
 )
 
-type TagRepository struct {
+type PriceAndCapRepository struct {
 	*Repository
 }
 
 const ()
 
-var _ tag.WriteRepository = (*TagRepository)(nil)
-var _ tag.ReadRepository = (*TagRepository)(nil)
+var _ price_and_cap.WriteRepository = (*PriceAndCapRepository)(nil)
+var _ price_and_cap.ReadRepository = (*PriceAndCapRepository)(nil)
 
-func NewTagRepository(repository *Repository) *TagRepository {
-	return &TagRepository{
+func NewPriceAndCapRepository(repository *Repository) *PriceAndCapRepository {
+	return &PriceAndCapRepository{
 		Repository: repository,
 	}
 }
 
 const (
-	tag_sql_Get    = "SELECT id, sysname, value FROM blog.tag WHERE id = $1;"
-	tag_sql_MGet   = "SELECT id, sysname, value FROM blog.tag WHERE id = any($1);"
-	tag_sql_GetAll = "SELECT id, sysname, value FROM blog.tag;"
-	tag_sql_Create = "INSERT INTO blog.tag(sysname, value) VALUES ($1, $2) RETURNING id;"
-	tag_sql_Update = "UPDATE blog.tag SET sysname = $2, value = $3 WHERE id = $1;"
-	tag_sql_Delete = "DELETE FROM blog.tag WHERE id = $1;"
+	price_and_cap_sql_Get    = "SELECT currency_id, price, daily_volume, cap, ts FROM cmc.price_and_cap WHERE currency_id = $1;"
+	price_and_cap_sql_MGet   = "SELECT currency_id, price, daily_volume, cap, ts FROM cmc.price_and_cap FROM blog.blog WHERE currency_id = any($1);"
+	price_and_cap_sql_GetAll = "SELECT currency_id, price, daily_volume, cap, ts FROM cmc.price_and_cap;"
+	price_and_cap_sql_Create = "INSERT INTO cmc.price_and_cap(currency_id, price, daily_volume, cap, ts) VALUES ($1, $2, $3, $4, $5) RETURNING currency_id;"
+	price_and_cap_sql_Update = "UPDATE cmc.price_and_cap SET price = $2, daily_volume = $3, cap = $4, ts = $5 WHERE currency_id = $1;"
+	price_and_cap_sql_Delete = "DELETE FROM cmc.price_and_cap WHERE currency_id = $1;"
 )
 
-func (r *TagRepository) Get(ctx context.Context, ID uint) (*tag.Tag, error) {
+func (r *PriceAndCapRepository) Get(ctx context.Context, currencyID uint) (*price_and_cap.PriceAndCap, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "TagRepository.Get"
+	const metricName = "PriceAndCapRepository.Get"
 	start := time.Now().UTC()
 
-	entity := &tag.Tag{}
-	if err := r.db.QueryRow(ctx, tag_sql_Get, ID).Scan(&entity.ID, &entity.Sysname, &entity.Value); err != nil {
+	entity := &price_and_cap.PriceAndCap{}
+	if err := r.db.QueryRow(ctx, price_and_cap_sql_Get, currencyID).Scan(&entity.CurrencyID, &entity.Price, &entity.DailyVolume, &entity.Cap, &entity.Ts); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -51,23 +51,23 @@ func (r *TagRepository) Get(ctx context.Context, ID uint) (*tag.Tag, error) {
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_Get, err)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_Get, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return entity, nil
 }
 
-func (r *TagRepository) MGet(ctx context.Context, IDs *[]uint) (*[]tag.Tag, error) {
+func (r *PriceAndCapRepository) MGet(ctx context.Context, currencyIDs *[]uint) (*[]price_and_cap.PriceAndCap, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "TagRepository.MGet"
+	const metricName = "PriceAndCapRepository.MGet"
 
-	var item tag.Tag
-	res := make([]tag.Tag, 0, len(*IDs))
+	var entity price_and_cap.PriceAndCap
+	res := make([]price_and_cap.PriceAndCap, 0, len(*currencyIDs))
 
 	start := time.Now().UTC()
-	rows, err := r.db.Query(ctx, tag_sql_MGet, *IDs)
+	rows, err := r.db.Query(ctx, price_and_cap_sql_MGet, *currencyIDs)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -76,17 +76,17 @@ func (r *TagRepository) MGet(ctx context.Context, IDs *[]uint) (*[]tag.Tag, erro
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_MGet, err)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_MGet, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&item.ID, &item.Sysname, &item.Value); err != nil {
+		if err = rows.Scan(&entity.CurrencyID, &entity.Price, &entity.DailyVolume, &entity.Cap, &entity.Ts); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_MGet, err)
+			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_MGet, err)
 		}
-		res = append(res, item)
+		res = append(res, entity)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -98,16 +98,16 @@ func (r *TagRepository) MGet(ctx context.Context, IDs *[]uint) (*[]tag.Tag, erro
 	return &res, nil
 }
 
-func (r *TagRepository) GetAll(ctx context.Context) (*[]tag.Tag, error) {
+func (r *PriceAndCapRepository) GetAll(ctx context.Context) (*[]price_and_cap.PriceAndCap, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "TagRepository.GetAll"
+	const metricName = "PriceAndCapRepository.GetAll"
 
-	var item tag.Tag
-	res := make([]tag.Tag, 0, defaultCapacityForResult)
+	var entity price_and_cap.PriceAndCap
+	res := make([]price_and_cap.PriceAndCap, 0, defaultCapacityForResult)
 
 	start := time.Now().UTC()
-	rows, err := r.db.Query(ctx, tag_sql_GetAll)
+	rows, err := r.db.Query(ctx, price_and_cap_sql_GetAll)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -116,17 +116,17 @@ func (r *TagRepository) GetAll(ctx context.Context) (*[]tag.Tag, error) {
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_GetAll, err)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_GetAll, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&item.ID, &item.Sysname, &item.Value); err != nil {
+		if err = rows.Scan(&entity.CurrencyID, &entity.Price, &entity.DailyVolume, &entity.Cap, &entity.Ts); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_GetAll, err)
+			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_GetAll, err)
 		}
-		res = append(res, item)
+		res = append(res, entity)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -138,13 +138,13 @@ func (r *TagRepository) GetAll(ctx context.Context) (*[]tag.Tag, error) {
 	return &res, nil
 }
 
-func (r *TagRepository) Create(ctx context.Context, entity *tag.Tag) (ID uint, err error) {
+func (r *PriceAndCapRepository) Create(ctx context.Context, entity *price_and_cap.PriceAndCap) (ID uint, err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	const metricName = "TagRepository.Create"
+	const metricName = "PriceAndCapRepository.Create"
 	start := time.Now().UTC()
 
-	if err := r.db.QueryRow(ctx, tag_sql_Create, entity.Sysname, entity.Value).Scan(&ID); err != nil {
+	if err := r.db.QueryRow(ctx, price_and_cap_sql_Create, entity.CurrencyID, entity.Price, entity.DailyVolume, entity.Cap, entity.Ts).Scan(&ID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -152,20 +152,20 @@ func (r *TagRepository) Create(ctx context.Context, entity *tag.Tag) (ID uint, e
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return 0, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_Create, err)
+		return 0, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_Create, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return ID, nil
 }
 
-func (r *TagRepository) Update(ctx context.Context, entity *tag.Tag) error {
+func (r *PriceAndCapRepository) Update(ctx context.Context, entity *price_and_cap.PriceAndCap) error {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "TagRepository.Update"
+	const metricName = "PriceAndCapRepository.Update"
 	start := time.Now().UTC()
 
-	_, err := r.db.Exec(ctx, tag_sql_Update, entity.ID, entity.Sysname, entity.Value)
+	_, err := r.db.Exec(ctx, price_and_cap_sql_Update, entity.CurrencyID, entity.Price, entity.DailyVolume, entity.Cap, entity.Ts)
 	if err != nil {
 		if strings.Contains(err.Error(), errMsg_duplicateKey) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -174,20 +174,20 @@ func (r *TagRepository) Update(ctx context.Context, entity *tag.Tag) error {
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_Update, err)
+		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_Update, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return nil
 }
 
-func (r *TagRepository) Delete(ctx context.Context, ID uint) error {
+func (r *PriceAndCapRepository) Delete(ctx context.Context, CurrencyID uint) error {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
-	const metricName = "TagRepository.Delete"
+	const metricName = "PriceAndCapRepository.Delete"
 	start := time.Now().UTC()
 
-	_, err := r.db.Exec(ctx, tag_sql_Delete, ID)
+	_, err := r.db.Exec(ctx, price_and_cap_sql_Delete, CurrencyID)
 	if err != nil {
 		if strings.Contains(err.Error(), errMsg_duplicateKey) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
@@ -196,7 +196,7 @@ func (r *TagRepository) Delete(ctx context.Context, ID uint) error {
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, tag_sql_Delete, err)
+		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_Delete, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
