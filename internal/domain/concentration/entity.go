@@ -16,3 +16,5 @@ type Concentration struct {
 func (e *Concentration) Validate() error {
 	return nil
 }
+
+type ConcentrationList []Concentration

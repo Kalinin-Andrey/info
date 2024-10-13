@@ -15,3 +15,5 @@ type PriceAndCap struct {
 func (e *PriceAndCap) Validate() error {
 	return nil
 }
+
+type PriceAndCapList []PriceAndCap

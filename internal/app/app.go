@@ -43,7 +43,7 @@ func New(ctx context.Context, cfg *config.Configuration) *App {
 		Subsystem:   cfg.App.Name,
 		Service:     cfg.App.Service,
 		Environment: cfg.App.Environment,
-	}, cfg.Integration)
+	}, cfg.Integration, infr.Logger)
 	if err != nil {
 		log.Fatal(err)
 	}
