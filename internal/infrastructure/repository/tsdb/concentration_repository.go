@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"info/internal/domain/concentration"
 	"info/internal/pkg/apperror"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,12 +29,14 @@ func NewConcentrationRepository(repository *Repository) *ConcentrationRepository
 }
 
 const (
-	concentration_sql_Get    = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration WHERE currency_id = $1;"
-	concentration_sql_MGet   = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration FROM blog.blog WHERE currency_id = any($1);"
-	concentration_sql_GetAll = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration;"
-	concentration_sql_Create = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, others, d) VALUES ($1, $2, $3, $4, $5, $6) RETURNING currency_id;"
-	concentration_sql_Update = "UPDATE cmc.concentration SET whales = $2, investors = $3, retail = $4, others = $5, d = $6 WHERE currency_id = $1;"
-	concentration_sql_Delete = "DELETE FROM cmc.concentration WHERE currency_id = $1;"
+	MUpsertConcentration_Limit = 11000 // 6 пар-ра * 13т = 65т ~= max
+
+	concentration_sql_Get                        = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration WHERE currency_id = $1;"
+	concentration_sql_MGet                       = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration FROM blog.blog WHERE currency_id = any($1);"
+	concentration_sql_GetAll                     = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration;"
+	concentration_sql_Upsert                     = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, others, d) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail, others = EXCLUDED.others;"
+	concentration_sql_MUpsert                    = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, others, d) VALUES "
+	concentration_sql_MUpsert_OnConflictDoUpdate = " ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail, others = EXCLUDED.others;"
 )
 
 func (r *ConcentrationRepository) Get(ctx context.Context, currencyID uint) (*concentration.Concentration, error) {
@@ -138,65 +141,74 @@ func (r *ConcentrationRepository) GetAll(ctx context.Context) (*[]concentration.
 	return &res, nil
 }
 
-func (r *ConcentrationRepository) Create(ctx context.Context, entity *concentration.Concentration) (ID uint, err error) {
+func (r *ConcentrationRepository) Upsert(ctx context.Context, entity *concentration.Concentration) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	const metricName = "ConcentrationRepository.Create"
+	const metricName = "ConcentrationRepository.Upsert"
 	start := time.Now().UTC()
 
-	if err := r.db.QueryRow(ctx, concentration_sql_Create, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.Others, entity.D).Scan(&ID); err != nil {
+	if _, err := r.db.Exec(ctx, concentration_sql_Upsert, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.Others, entity.D); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-			return 0, apperror.ErrNotFound
+			return apperror.ErrNotFound
 		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return 0, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_Create, err)
-	}
-	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-	return ID, nil
-}
-
-func (r *ConcentrationRepository) Update(ctx context.Context, entity *concentration.Concentration) error {
-	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	//defer cancel()
-	const metricName = "ConcentrationRepository.Update"
-	start := time.Now().UTC()
-
-	_, err := r.db.Exec(ctx, concentration_sql_Update, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.Others, entity.D)
-	if err != nil {
-		if strings.Contains(err.Error(), errMsg_duplicateKey) {
-			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-			return apperror.ErrBadRequest
-		}
-		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
-		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_Update, err)
+		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_Upsert, err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return nil
 }
 
-func (r *ConcentrationRepository) Delete(ctx context.Context, CurrencyID uint) error {
-	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	//defer cancel()
-	const metricName = "ConcentrationRepository.Delete"
+func (r ConcentrationRepository) MUpsert(ctx context.Context, entities *[]concentration.Concentration) error {
+	if len(*entities) <= MUpsertConcentration_Limit {
+		return r.mUpsert(ctx, entities)
+	}
+
+	lbound := 0
+	hbound := MUpsertConcentration_Limit
+	for lbound < hbound {
+		entitiesItem := (*entities)[lbound:hbound]
+		if err := r.mUpsert(ctx, &entitiesItem); err != nil {
+			return err
+		}
+		lbound = hbound
+		hbound += MUpsertConcentration_Limit
+		if hbound > len(*entities) {
+			hbound = len(*entities)
+		}
+	}
+	return nil
+}
+
+func (r ConcentrationRepository) mUpsert(ctx context.Context, entities *[]concentration.Concentration) error {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+	const metricName = "ConcentrationRepository.mUpsert"
+	const fields_nb = 6 // при изменении количества полей нужно изменить MUpsertNmDimensions_Limit, чтобы, в результате, кол-во пар-ов не превышало 65т
+	if len(*entities) == 0 {
+		return nil
+	}
+	b := strings.Builder{}
+	params := make([]interface{}, 0, len(*entities)*fields_nb)
+	b.WriteString(concentration_sql_MUpsert)
+	for i, entity := range *entities {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString("($" + strconv.Itoa(i*fields_nb+1) + ", $" + strconv.Itoa(i*fields_nb+2) + ", $" + strconv.Itoa(i*fields_nb+3) + ", $" + strconv.Itoa(i*fields_nb+4) + ", $" + strconv.Itoa(i*fields_nb+5) + ", $" + strconv.Itoa(i*fields_nb+6) + ")")
+		params = append(params, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.Others, entity.D)
+	}
+	b.WriteString(concentration_sql_MUpsert_OnConflictDoUpdate)
 	start := time.Now().UTC()
 
-	_, err := r.db.Exec(ctx, concentration_sql_Delete, CurrencyID)
+	_, err := r.db.Exec(ctx, b.String(), params...)
 	if err != nil {
-		if strings.Contains(err.Error(), errMsg_duplicateKey) {
-			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-			return apperror.ErrBadRequest
-		}
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_Delete, err)
+		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, b.String(), err)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)

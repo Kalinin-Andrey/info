@@ -10,9 +10,8 @@ type ReplicaSet interface {
 }
 
 type WriteRepository interface {
-	Create(ctx context.Context, entity *Concentration) (ID uint, err error)
-	Update(ctx context.Context, entity *Concentration) error
-	Delete(ctx context.Context, CurrencyID uint) error
+	Upsert(ctx context.Context, entity *Concentration) error
+	MUpsert(ctx context.Context, entities *[]Concentration) error
 }
 
 type ReadRepository interface {

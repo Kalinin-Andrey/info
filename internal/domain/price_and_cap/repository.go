@@ -10,9 +10,8 @@ type ReplicaSet interface {
 }
 
 type WriteRepository interface {
-	Create(ctx context.Context, entity *PriceAndCap) (ID uint, err error)
-	Update(ctx context.Context, entity *PriceAndCap) error
-	Delete(ctx context.Context, CurrencyID uint) error
+	Upsert(ctx context.Context, entity *PriceAndCap) error
+	MUpsert(ctx context.Context, entities *[]PriceAndCap) error
 }
 
 type ReadRepository interface {

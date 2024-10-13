@@ -13,7 +13,7 @@ func NewService(replicaSet ReplicaSet) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, entity *Concentration) (ID uint, err error) {
-	return s.replicaSet.WriteRepo().Create(ctx, entity)
+	return s.replicaSet.WriteRepo().Upsert(ctx, entity)
 }
 
 func (s *Service) Update(ctx context.Context, entity *Concentration) error {

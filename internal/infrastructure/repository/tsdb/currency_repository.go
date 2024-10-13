@@ -141,7 +141,7 @@ func (r *CurrencyRepository) GetAll(ctx context.Context) (*[]currency.Currency, 
 func (r *CurrencyRepository) Create(ctx context.Context, entity *currency.Currency) (ID uint, err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	const metricName = "CurrencyRepository.Create"
+	const metricName = "CurrencyRepository.Upsert"
 	start := time.Now().UTC()
 
 	if err := r.db.QueryRow(ctx, currency_sql_Create, entity.ID, entity.Symbol, entity.Slug, entity.Name, entity.IsForObserving).Scan(&ID); err != nil {
