@@ -10,6 +10,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
 	"info/internal/domain/concentration"
+	"info/internal/domain/currency"
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"info/internal/pkg/log_key"
@@ -56,6 +57,7 @@ const (
 
 	URI_GetDetailChart string = "/data-api/v3/cryptocurrency/detail/chart"
 	URI_GetAnalytics   string = "/data-api/v3/cryptocurrency/info/get-analytics"
+	URI_GetCurrency    string = "/data-api/v3/cryptocurrency/market-pairs/latest"
 )
 
 var ChartRangeList = []interface{}{
@@ -190,5 +192,38 @@ func (c *CmcApiClient) GetAnalytics(ctx context.Context, currencyID uint, tRange
 		return nil, fmt.Errorf(funcName+" [%w] error while convertation result; requestId: %s; uri: %s; response: %s; error: %w;", apperror.ErrInternal, requestId, uri, string(data), err)
 	}
 
+	return res, nil
+}
+
+func (c *CmcApiClient) GetCurrency(ctx context.Context, currencySlug string) (*currency.Currency, error) {
+	var err error
+	const funcName = "GetCurrency"
+	resp := &GetCurrencyResponse{}
+	requestId, options := c.getDefaultRequestOptions()
+	uri := URI_GetCurrency + "?start=1&limit=10&category=spot&slug=" + currencySlug
+
+	data, code, err := c.httpClient.Get(ctx, uri, options...)
+	if err != nil {
+		c.logger.Error("httpClient.Get error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.Error(err))
+		return nil, fmt.Errorf(Name+"."+funcName+" [%w] http error: %s; requestId: %s; uri: %s", apperror.ErrInternal, err.Error(), requestId, uri)
+	}
+	if code != 200 {
+		c.logger.Error("httpClient.Get error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.Error(err), zap.Int(log_key.Code, code))
+		return nil, fmt.Errorf(funcName+" [%w] http response error code: "+strconv.Itoa(code)+"; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, requestId, uri, string(data))
+	}
+
+	if err = json.Unmarshal(data, resp); err != nil {
+		c.logger.Error("json.Unmarshal error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.Error(err))
+		return nil, fmt.Errorf(funcName+" [%w] json.Unmarshal error: %s; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, err.Error(), requestId, uri, string(data))
+	}
+
+	if resp.Status.ErrorCode != "0" || resp.Status.ErrorMessage != ErrorMessage_Success {
+		c.logger.Error("response with error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.String(log_key.ErrorCode, resp.Status.ErrorCode), zap.String(log_key.ErrorMessage, resp.Status.ErrorMessage))
+		return nil, fmt.Errorf(funcName+" [%w] response with error; code: "+resp.Status.ErrorCode+"; error message: "+resp.Status.ErrorMessage+"; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, requestId, uri, string(data))
+	}
+
+	resp.Data.Slug = currencySlug
+	res := resp.Data.Currency()
+	
 	return res, nil
 }

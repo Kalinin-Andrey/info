@@ -1,27 +1,27 @@
 package concentration
 
-import "context"
+import (
+	"context"
+)
+
+type CmcApi interface {
+	GetAnalytics(ctx context.Context, CurrencyID uint, Range string) (*ConcentrationList, error)
+}
 
 type Service struct {
 	replicaSet ReplicaSet
+	cmcApi     CmcApi
 }
 
-func NewService(replicaSet ReplicaSet) *Service {
+func NewService(replicaSet ReplicaSet, cmcApi CmcApi) *Service {
 	return &Service{
 		replicaSet: replicaSet,
+		cmcApi:     cmcApi,
 	}
 }
 
-func (s *Service) Create(ctx context.Context, entity *Concentration) (ID uint, err error) {
+func (s *Service) Upsert(ctx context.Context, entity *Concentration) error {
 	return s.replicaSet.WriteRepo().Upsert(ctx, entity)
-}
-
-func (s *Service) Update(ctx context.Context, entity *Concentration) error {
-	return s.replicaSet.WriteRepo().Update(ctx, entity)
-}
-
-func (s *Service) Delete(ctx context.Context, currencyID uint) error {
-	return s.replicaSet.WriteRepo().Delete(ctx, currencyID)
 }
 
 func (s *Service) Get(ctx context.Context, currencyID uint) (*Concentration, error) {

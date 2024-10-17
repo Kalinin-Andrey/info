@@ -17,3 +17,5 @@ func (e *PriceAndCap) Validate() error {
 }
 
 type PriceAndCapList []PriceAndCap
+
+type PriceAndCapMap map[uint]PriceAndCapList

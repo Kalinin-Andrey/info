@@ -31,43 +31,19 @@ func NewConcentrationRepository(repository *Repository) *ConcentrationRepository
 const (
 	MUpsertConcentration_Limit = 11000 // 6 пар-ра * 13т = 65т ~= max
 
-	concentration_sql_Get                        = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration WHERE currency_id = $1;"
-	concentration_sql_MGet                       = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration FROM blog.blog WHERE currency_id = any($1);"
-	concentration_sql_GetAll                     = "SELECT currency_id, whales, investors, retail, others, d FROM cmc.concentration;"
-	concentration_sql_Upsert                     = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, others, d) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail, others = EXCLUDED.others;"
-	concentration_sql_MUpsert                    = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, others, d) VALUES "
-	concentration_sql_MUpsert_OnConflictDoUpdate = " ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail, others = EXCLUDED.others;"
+	concentration_sql_MGet                       = "SELECT currency_id, whales, investors, retail, d FROM cmc.concentration FROM blog.blog WHERE currency_id = any($1);"
+	concentration_sql_Upsert                     = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, d) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail;"
+	concentration_sql_MUpsert                    = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, d) VALUES "
+	concentration_sql_MUpsert_OnConflictDoUpdate = " ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail;"
 )
 
-func (r *ConcentrationRepository) Get(ctx context.Context, currencyID uint) (*concentration.Concentration, error) {
-	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	//defer cancel()
-	const metricName = "ConcentrationRepository.Get"
-	start := time.Now().UTC()
-
-	entity := &concentration.Concentration{}
-	if err := r.db.QueryRow(ctx, concentration_sql_Get, currencyID).Scan(&entity.CurrencyID, &entity.Whales, &entity.Investors, &entity.Retail, &entity.Others, &entity.D); err != nil {
-		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
-			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-			return nil, apperror.ErrNotFound
-		}
-		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
-		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_Get, err)
-	}
-	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-	return entity, nil
-}
-
-func (r *ConcentrationRepository) MGet(ctx context.Context, currencyIDs *[]uint) (*[]concentration.Concentration, error) {
+func (r *ConcentrationRepository) MGet(ctx context.Context, currencyIDs *[]uint) (concentration.ConcentrationMap, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
 	const metricName = "ConcentrationRepository.MGet"
 
 	var entity concentration.Concentration
-	res := make([]concentration.Concentration, 0, len(*currencyIDs))
+	res := make(concentration.ConcentrationMap, len(*currencyIDs))
 
 	start := time.Now().UTC()
 	rows, err := r.db.Query(ctx, concentration_sql_MGet, *currencyIDs)
@@ -84,12 +60,16 @@ func (r *ConcentrationRepository) MGet(ctx context.Context, currencyIDs *[]uint)
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&entity.CurrencyID, &entity.Whales, &entity.Investors, &entity.Retail, &entity.Others, &entity.D); err != nil {
+		if err = rows.Scan(&entity.CurrencyID, &entity.Whales, &entity.Investors, &entity.Retail, &entity.D); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
 			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_MGet, err)
 		}
-		res = append(res, entity)
+		if _, ok := res[entity.CurrencyID]; !ok {
+			res[entity.CurrencyID] = make(concentration.ConcentrationList, 0, defaultCapacityForResult)
+		}
+
+		res[entity.CurrencyID] = append(res[entity.CurrencyID], entity)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -98,47 +78,7 @@ func (r *ConcentrationRepository) MGet(ctx context.Context, currencyIDs *[]uint)
 		return nil, apperror.ErrNotFound
 	}
 
-	return &res, nil
-}
-
-func (r *ConcentrationRepository) GetAll(ctx context.Context) (*[]concentration.Concentration, error) {
-	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	//defer cancel()
-	const metricName = "ConcentrationRepository.GetAll"
-
-	var entity concentration.Concentration
-	res := make([]concentration.Concentration, 0, defaultCapacityForResult)
-
-	start := time.Now().UTC()
-	rows, err := r.db.Query(ctx, concentration_sql_GetAll)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
-			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-			return nil, apperror.ErrNotFound
-		}
-		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
-		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_GetAll, err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		if err = rows.Scan(&entity.CurrencyID, &entity.Whales, &entity.Investors, &entity.Retail, &entity.Others, &entity.D); err != nil {
-			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, concentration_sql_GetAll, err)
-		}
-		res = append(res, entity)
-	}
-	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-
-	if len(res) == 0 {
-		return nil, apperror.ErrNotFound
-	}
-
-	return &res, nil
+	return res, nil
 }
 
 func (r *ConcentrationRepository) Upsert(ctx context.Context, entity *concentration.Concentration) (err error) {
@@ -147,7 +87,7 @@ func (r *ConcentrationRepository) Upsert(ctx context.Context, entity *concentrat
 	const metricName = "ConcentrationRepository.Upsert"
 	start := time.Now().UTC()
 
-	if _, err := r.db.Exec(ctx, concentration_sql_Upsert, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.Others, entity.D); err != nil {
+	if _, err := r.db.Exec(ctx, concentration_sql_Upsert, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.D); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -199,7 +139,7 @@ func (r ConcentrationRepository) mUpsert(ctx context.Context, entities *[]concen
 			b.WriteString(", ")
 		}
 		b.WriteString("($" + strconv.Itoa(i*fields_nb+1) + ", $" + strconv.Itoa(i*fields_nb+2) + ", $" + strconv.Itoa(i*fields_nb+3) + ", $" + strconv.Itoa(i*fields_nb+4) + ", $" + strconv.Itoa(i*fields_nb+5) + ", $" + strconv.Itoa(i*fields_nb+6) + ")")
-		params = append(params, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.Others, entity.D)
+		params = append(params, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.D)
 	}
 	b.WriteString(concentration_sql_MUpsert_OnConflictDoUpdate)
 	start := time.Now().UTC()

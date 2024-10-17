@@ -5,6 +5,7 @@ import (
 	"errors"
 	"go.uber.org/zap"
 	"info/internal/domain/concentration"
+	"info/internal/domain/currency"
 	"info/internal/domain/price_and_cap"
 	"info/internal/integration/cmc_api"
 )
@@ -19,6 +20,7 @@ type AppConfig struct {
 type CmcApi interface {
 	GetDetailChart(ctx context.Context, CurrencyID uint, Range string) (*price_and_cap.PriceAndCapList, error)
 	GetAnalytics(ctx context.Context, CurrencyID uint, Range string) (*concentration.ConcentrationList, error)
+	GetCurrency(ctx context.Context, currencySlug string) (*currency.Currency, error)
 }
 
 type Integration struct {

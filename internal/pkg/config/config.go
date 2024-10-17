@@ -59,6 +59,12 @@ type RestAPIConfig struct {
 }
 
 type CliConfig struct {
+	CurrencyCollector *CurrencyCollector
+}
+
+type CurrencyCollector struct {
+	Duration            time.Duration
+	ListOfCurrencySlugs []string
 }
 
 // Get func return the app config

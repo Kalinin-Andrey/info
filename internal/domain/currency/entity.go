@@ -1,5 +1,7 @@
 package currency
 
+import "time"
+
 const ()
 
 type Currency struct {
@@ -12,4 +14,10 @@ type Currency struct {
 
 func (e *Currency) Validate() error {
 	return nil
+}
+
+type ImportMaxTime struct {
+	CurrencyID    uint
+	PriceAndCap   *time.Time
+	Concentration *time.Time
 }

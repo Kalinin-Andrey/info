@@ -2,6 +2,7 @@ package cmc_api
 
 import (
 	"info/internal/domain/concentration"
+	"info/internal/domain/currency"
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"strconv"
@@ -14,6 +15,27 @@ type Status struct {
 	ErrorMessage string `json:"error_message"`
 	Elapsed      string `json:"elapsed"`
 	CreditCount  uint   `json:"credit_count"`
+}
+
+type GetCurrencyResponse struct {
+	Data   *CurrencyData `json:"data"`
+	Status Status        `json:"status"`
+}
+
+type CurrencyData struct {
+	ID     uint   `json:"id"`
+	Symbol string `json:"symbol"`
+	Slug   string `json:"slug"`
+	Name   string `json:"name"`
+}
+
+func (e *CurrencyData) Currency() *currency.Currency {
+	return &currency.Currency{
+		ID:     e.ID,
+		Symbol: e.Symbol,
+		Slug:   e.Slug,
+		Name:   e.Name,
+	}
 }
 
 type DetailChartResponse struct {
@@ -128,7 +150,6 @@ func (e *HistoricalConcentration) ConcentrationList(currencyID uint) (*concentra
 			Whales:     item.Whales,
 			Investors:  item.Investors,
 			Retail:     item.Retail,
-			Others:     item.Others,
 			D:          t,
 		})
 	}

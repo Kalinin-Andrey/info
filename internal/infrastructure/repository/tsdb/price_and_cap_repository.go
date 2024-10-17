@@ -31,43 +31,19 @@ func NewPriceAndCapRepository(repository *Repository) *PriceAndCapRepository {
 const (
 	MUpsertPriceAndCap_Limit = 13000 // 5 пар-ра * 13т = 65т ~= max
 
-	price_and_cap_sql_Get                        = "SELECT currency_id, price, daily_volume, cap, ts FROM cmc.price_and_cap WHERE currency_id = $1;"
 	price_and_cap_sql_MGet                       = "SELECT currency_id, price, daily_volume, cap, ts FROM cmc.price_and_cap FROM blog.blog WHERE currency_id = any($1);"
-	price_and_cap_sql_GetAll                     = "SELECT currency_id, price, daily_volume, cap, ts FROM cmc.price_and_cap;"
 	price_and_cap_sql_Upsert                     = "INSERT INTO cmc.price_and_cap(currency_id, price, daily_volume, cap, ts) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (currency_id, ts) DO UPDATE SET price = EXCLUDED.price, daily_volume = EXCLUDED.daily_volume, cap = EXCLUDED.cap;"
 	price_and_cap_sql_MUpsert                    = "INSERT INTO cmc.price_and_cap(currency_id, price, daily_volume, cap, ts) VALUES "
 	price_and_cap_sql_MUpsert_OnConflictDoUpdate = " ON CONFLICT (currency_id, ts) DO UPDATE SET price = EXCLUDED.price, daily_volume = EXCLUDED.daily_volume, cap = EXCLUDED.cap;"
 )
 
-func (r *PriceAndCapRepository) Get(ctx context.Context, currencyID uint) (*price_and_cap.PriceAndCap, error) {
-	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	//defer cancel()
-	const metricName = "PriceAndCapRepository.Get"
-	start := time.Now().UTC()
-
-	entity := &price_and_cap.PriceAndCap{}
-	if err := r.db.QueryRow(ctx, price_and_cap_sql_Get, currencyID).Scan(&entity.CurrencyID, &entity.Price, &entity.DailyVolume, &entity.Cap, &entity.Ts); err != nil {
-		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
-			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-			return nil, apperror.ErrNotFound
-		}
-		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
-		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_Get, err)
-	}
-	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-	return entity, nil
-}
-
-func (r *PriceAndCapRepository) MGet(ctx context.Context, currencyIDs *[]uint) (*[]price_and_cap.PriceAndCap, error) {
+func (r *PriceAndCapRepository) MGet(ctx context.Context, currencyIDs *[]uint) (price_and_cap.PriceAndCapMap, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
 	const metricName = "PriceAndCapRepository.MGet"
 
 	var entity price_and_cap.PriceAndCap
-	res := make([]price_and_cap.PriceAndCap, 0, len(*currencyIDs))
+	res := make(price_and_cap.PriceAndCapMap, len(*currencyIDs))
 
 	start := time.Now().UTC()
 	rows, err := r.db.Query(ctx, price_and_cap_sql_MGet, *currencyIDs)
@@ -89,7 +65,10 @@ func (r *PriceAndCapRepository) MGet(ctx context.Context, currencyIDs *[]uint) (
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
 			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_MGet, err)
 		}
-		res = append(res, entity)
+		if _, ok := res[entity.CurrencyID]; !ok {
+			res[entity.CurrencyID] = make(price_and_cap.PriceAndCapList, 0, defaultCapacityForResult)
+		}
+		res[entity.CurrencyID] = append(res[entity.CurrencyID], entity)
 	}
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -98,47 +77,7 @@ func (r *PriceAndCapRepository) MGet(ctx context.Context, currencyIDs *[]uint) (
 		return nil, apperror.ErrNotFound
 	}
 
-	return &res, nil
-}
-
-func (r *PriceAndCapRepository) GetAll(ctx context.Context) (*[]price_and_cap.PriceAndCap, error) {
-	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	//defer cancel()
-	const metricName = "PriceAndCapRepository.GetAll"
-
-	var entity price_and_cap.PriceAndCap
-	res := make([]price_and_cap.PriceAndCap, 0, defaultCapacityForResult)
-
-	start := time.Now().UTC()
-	rows, err := r.db.Query(ctx, price_and_cap_sql_GetAll)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
-			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-			return nil, apperror.ErrNotFound
-		}
-		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
-		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_GetAll, err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		if err = rows.Scan(&entity.CurrencyID, &entity.Price, &entity.DailyVolume, &entity.Cap, &entity.Ts); err != nil {
-			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
-			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
-			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, price_and_cap_sql_GetAll, err)
-		}
-		res = append(res, entity)
-	}
-	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
-	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
-
-	if len(res) == 0 {
-		return nil, apperror.ErrNotFound
-	}
-
-	return &res, nil
+	return res, nil
 }
 
 func (r *PriceAndCapRepository) Upsert(ctx context.Context, entity *price_and_cap.PriceAndCap) (err error) {

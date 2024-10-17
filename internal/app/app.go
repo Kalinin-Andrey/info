@@ -63,8 +63,8 @@ func New(ctx context.Context, cfg *config.Configuration) *App {
 func (app *App) SetupServices() {
 	app.Domain = &Domain{
 		Currency:      currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB)),
-		PriceAndCap:   price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB)),
-		Concentration: concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB)),
+		PriceAndCap:   price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
+		Concentration: concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
 	}
 }
 

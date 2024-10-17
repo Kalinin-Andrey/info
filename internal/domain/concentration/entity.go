@@ -9,7 +9,6 @@ type Concentration struct {
 	Whales     float64
 	Investors  float64
 	Retail     float64
-	Others     float64
 	D          time.Time
 }
 
@@ -18,3 +17,5 @@ func (e *Concentration) Validate() error {
 }
 
 type ConcentrationList []Concentration
+
+type ConcentrationMap map[uint]ConcentrationList
