@@ -2,6 +2,7 @@ package concentration
 
 import (
 	"context"
+	"info/internal/domain"
 )
 
 type ReplicaSet interface {
@@ -11,7 +12,7 @@ type ReplicaSet interface {
 
 type WriteRepository interface {
 	Upsert(ctx context.Context, entity *Concentration) (err error)
-	MUpsert(ctx context.Context, entities *[]Concentration) error
+	MUpsertTx(ctx context.Context, tx domain.Tx, entities *[]Concentration) error
 }
 
 type ReadRepository interface {

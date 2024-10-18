@@ -16,6 +16,20 @@ func (e *Currency) Validate() error {
 	return nil
 }
 
+type CurrencyList []Currency
+
+func (l *CurrencyList) IDs() *[]uint {
+	if l == nil {
+		return nil
+	}
+	res := make([]uint, 0, len(*l))
+	var item Currency
+	for _, item = range *l {
+		res = append(res, item.ID)
+	}
+	return &res
+}
+
 type ImportMaxTime struct {
 	CurrencyID    uint
 	PriceAndCap   *time.Time

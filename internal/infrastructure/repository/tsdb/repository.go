@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"info/internal/domain"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -154,7 +155,7 @@ func (r *Repository) SqlDB() *sql.DB {
 }
 
 // Begin используется для создания транзакции и её дальнейшей передачи в методы стора
-func (r *Repository) Begin(ctx context.Context) (Tx, error) {
+func (r *Repository) Begin(ctx context.Context) (domain.Tx, error) {
 	const metricName = "Repository.Begin"
 
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
@@ -171,6 +172,7 @@ func (r *Repository) Begin(ctx context.Context) (Tx, error) {
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return tx, nil
 }
+
 func (r *Repository) BeginWithOptions(ctx context.Context, opts *pgx.TxOptions) (Tx, error) {
 	const metricName = "Repository.BeginWithOptions"
 

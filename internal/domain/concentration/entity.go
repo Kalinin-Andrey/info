@@ -18,4 +18,12 @@ func (e *Concentration) Validate() error {
 
 type ConcentrationList []Concentration
 
+func (l *ConcentrationList) Slice() *[]Concentration {
+	if l == nil {
+		return nil
+	}
+	res := []Concentration(*l)
+	return &res
+}
+
 type ConcentrationMap map[uint]ConcentrationList

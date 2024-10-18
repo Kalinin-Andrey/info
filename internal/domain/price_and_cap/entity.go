@@ -18,4 +18,12 @@ func (e *PriceAndCap) Validate() error {
 
 type PriceAndCapList []PriceAndCap
 
+func (l *PriceAndCapList) Slice() *[]PriceAndCap {
+	if l == nil {
+		return nil
+	}
+	res := []PriceAndCap(*l)
+	return &res
+}
+
 type PriceAndCapMap map[uint]PriceAndCapList

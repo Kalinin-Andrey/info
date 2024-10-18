@@ -34,6 +34,7 @@ const (
 	currency_sql_GetImportMaxTime          = "SELECT currency_id, price_and_cap, concentration FROM cmc.import_max_time WHERE currency_id = ANY($1);"
 	currency_sql_GetImportMaxTimeForUpdate = "SELECT currency_id, price_and_cap, concentration FROM cmc.import_max_time WHERE currency_id = ANY($1) FOR UPDATE;"
 	currency_sql_MGet                      = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency FROM blog.blog WHERE id = any($1);"
+	currency_sql_MGetBySlug                = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency FROM blog.blog WHERE slug = any($1);"
 	currency_sql_GetAll                    = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency;"
 	currency_sql_Create                    = "INSERT INTO cmc.currency(id, symbol, slug, name, is_for_observing) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id;"
 	currency_sql_Update                    = "UPDATE cmc.currency SET symbol = $2, slug = $3, name = $4, is_for_observing = $5 WHERE id = $1;"
@@ -164,13 +165,13 @@ func (r *CurrencyRepository) GetImportMaxTimeForUpdate(ctx context.Context, tx d
 	return &res, nil
 }
 
-func (r *CurrencyRepository) MGet(ctx context.Context, IDs *[]uint) (*[]currency.Currency, error) {
+func (r *CurrencyRepository) MGet(ctx context.Context, IDs *[]uint) (*currency.CurrencyList, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
 	const metricName = "CurrencyRepository.MGet"
 
 	var entity currency.Currency
-	res := make([]currency.Currency, 0, len(*IDs))
+	res := make(currency.CurrencyList, 0, len(*IDs))
 
 	start := time.Now().UTC()
 	rows, err := r.db.Query(ctx, currency_sql_MGet, *IDs)
@@ -191,6 +192,46 @@ func (r *CurrencyRepository) MGet(ctx context.Context, IDs *[]uint) (*[]currency
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
 			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_MGet, err)
+		}
+		res = append(res, entity)
+	}
+	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
+	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
+
+	if len(res) == 0 {
+		return nil, apperror.ErrNotFound
+	}
+
+	return &res, nil
+}
+
+func (r *CurrencyRepository) MGetBySlug(ctx context.Context, slugs *[]string) (*currency.CurrencyList, error) {
+	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	//defer cancel()
+	const metricName = "CurrencyRepository.MGetBySlug"
+
+	var entity currency.Currency
+	res := make(currency.CurrencyList, 0, len(*slugs))
+
+	start := time.Now().UTC()
+	rows, err := r.db.Query(ctx, currency_sql_MGetBySlug, *slugs)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
+			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
+			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
+			return nil, apperror.ErrNotFound
+		}
+		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
+		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_MGetBySlug, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err = rows.Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving); err != nil {
+			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
+			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
+			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_MGetBySlug, err)
 		}
 		res = append(res, entity)
 	}

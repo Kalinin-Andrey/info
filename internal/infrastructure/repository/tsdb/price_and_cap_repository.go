@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"info/internal/domain"
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"strconv"
@@ -101,16 +102,16 @@ func (r *PriceAndCapRepository) Upsert(ctx context.Context, entity *price_and_ca
 	return nil
 }
 
-func (r PriceAndCapRepository) MUpsert(ctx context.Context, entities *[]price_and_cap.PriceAndCap) error {
+func (r PriceAndCapRepository) MUpsertTx(ctx context.Context, tx domain.Tx, entities *[]price_and_cap.PriceAndCap) error {
 	if len(*entities) <= MUpsertPriceAndCap_Limit {
-		return r.mUpsert(ctx, entities)
+		return r.mUpsertTx(ctx, tx, entities)
 	}
 
 	lbound := 0
 	hbound := MUpsertPriceAndCap_Limit
 	for lbound < hbound {
 		entitiesItem := (*entities)[lbound:hbound]
-		if err := r.mUpsert(ctx, &entitiesItem); err != nil {
+		if err := r.mUpsertTx(ctx, tx, &entitiesItem); err != nil {
 			return err
 		}
 		lbound = hbound
@@ -122,10 +123,10 @@ func (r PriceAndCapRepository) MUpsert(ctx context.Context, entities *[]price_an
 	return nil
 }
 
-func (r PriceAndCapRepository) mUpsert(ctx context.Context, entities *[]price_and_cap.PriceAndCap) error {
+func (r PriceAndCapRepository) mUpsertTx(ctx context.Context, tx domain.Tx, entities *[]price_and_cap.PriceAndCap) error {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	const metricName = "PriceAndCapRepository.mUpsert"
+	const metricName = "PriceAndCapRepository.mUpsertTx"
 	const fields_nb = 5 // при изменении количества полей нужно изменить MUpsertNmDimensions_Limit, чтобы, в результате, кол-во пар-ов не превышало 65т
 	if len(*entities) == 0 {
 		return nil
@@ -143,7 +144,7 @@ func (r PriceAndCapRepository) mUpsert(ctx context.Context, entities *[]price_an
 	b.WriteString(price_and_cap_sql_MUpsert_OnConflictDoUpdate)
 	start := time.Now().UTC()
 
-	_, err := r.db.Exec(ctx, b.String(), params...)
+	_, err := tx.Exec(ctx, b.String(), params...)
 	if err != nil {
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)

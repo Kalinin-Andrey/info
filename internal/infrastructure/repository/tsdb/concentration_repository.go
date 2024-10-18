@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"info/internal/domain"
 	"info/internal/domain/concentration"
 	"info/internal/pkg/apperror"
 	"strconv"
@@ -102,16 +103,16 @@ func (r *ConcentrationRepository) Upsert(ctx context.Context, entity *concentrat
 	return nil
 }
 
-func (r ConcentrationRepository) MUpsert(ctx context.Context, entities *[]concentration.Concentration) error {
+func (r ConcentrationRepository) MUpsertTx(ctx context.Context, tx domain.Tx, entities *[]concentration.Concentration) error {
 	if len(*entities) <= MUpsertConcentration_Limit {
-		return r.mUpsert(ctx, entities)
+		return r.mUpsertTx(ctx, tx, entities)
 	}
 
 	lbound := 0
 	hbound := MUpsertConcentration_Limit
 	for lbound < hbound {
 		entitiesItem := (*entities)[lbound:hbound]
-		if err := r.mUpsert(ctx, &entitiesItem); err != nil {
+		if err := r.mUpsertTx(ctx, tx, &entitiesItem); err != nil {
 			return err
 		}
 		lbound = hbound
@@ -123,10 +124,10 @@ func (r ConcentrationRepository) MUpsert(ctx context.Context, entities *[]concen
 	return nil
 }
 
-func (r ConcentrationRepository) mUpsert(ctx context.Context, entities *[]concentration.Concentration) error {
+func (r ConcentrationRepository) mUpsertTx(ctx context.Context, tx domain.Tx, entities *[]concentration.Concentration) error {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	const metricName = "ConcentrationRepository.mUpsert"
+	const metricName = "ConcentrationRepository.mUpsertTx"
 	const fields_nb = 6 // при изменении количества полей нужно изменить MUpsertNmDimensions_Limit, чтобы, в результате, кол-во пар-ов не превышало 65т
 	if len(*entities) == 0 {
 		return nil
@@ -144,7 +145,7 @@ func (r ConcentrationRepository) mUpsert(ctx context.Context, entities *[]concen
 	b.WriteString(concentration_sql_MUpsert_OnConflictDoUpdate)
 	start := time.Now().UTC()
 
-	_, err := r.db.Exec(ctx, b.String(), params...)
+	_, err := tx.Exec(ctx, b.String(), params...)
 	if err != nil {
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)

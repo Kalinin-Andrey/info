@@ -46,7 +46,7 @@ func (app *App) currencyCollector(cmd *cobra.Command, args []string) {
 func (app *App) dimensionCollector_Exec(ctx context.Context, cfg *config.CurrencyCollector) {
 	app.Infra.Logger.Info("PriceAndCap.Import: starts iteration...")
 
-	if err := app.Domain.Currency.Import(ctx, cfg.ListOfCurrencySlugs); err != nil {
+	if err := app.Domain.Currency.Import(ctx, &cfg.ListOfCurrencySlugs); err != nil {
 		app.Infra.Logger.Info("PriceAndCap.Import: iteration completed with errors!", zap.Error(err))
 		return
 	}
