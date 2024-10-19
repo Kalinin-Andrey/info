@@ -224,6 +224,6 @@ func (c *CmcApiClient) GetCurrency(ctx context.Context, currencySlug string) (*c
 
 	resp.Data.Slug = currencySlug
 	res := resp.Data.Currency()
-	
+
 	return res, nil
 }

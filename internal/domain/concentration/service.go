@@ -2,7 +2,9 @@ package concentration
 
 import (
 	"context"
+	"fmt"
 	"info/internal/domain"
+	"info/internal/pkg/apperror"
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -46,38 +48,62 @@ func (s *Service) Upsert(ctx context.Context, entity *Concentration) error {
 	return s.replicaSet.WriteRepo().Upsert(ctx, entity)
 }
 
-func (s *Service) ImportTx(ctx context.Context, tx domain.Tx, currencyID uint, importLastTime *time.Time) (err error) {
+func (s *Service) ImportTx(ctx context.Context, tx domain.Tx, currencyID uint, importLastTime *time.Time) (maxTime *time.Time, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("[%w] Recover from panic: %v", apperror.ErrInternal, r)
+		}
+	}()
+
 	if importLastTime == nil || time.Now().Add(-time.Hour*24*365).After(*importLastTime) {
-		if err = s.importTx(ctx, tx, currencyID, TimeRange_All); err != nil {
-			return err
+		maxT, err := s.importTx(ctx, tx, currencyID, TimeRange_All)
+		if err != nil {
+			return nil, err
+		}
+		if maxTime == nil || (maxT != nil && maxT.After(*maxTime)) {
+			maxTime = maxT
 		}
 	}
 
 	if importLastTime == nil || time.Now().Add(-time.Hour*24*31).After(*importLastTime) {
-		if err = s.importTx(ctx, tx, currencyID, TimeRange_1Y); err != nil {
-			return err
+		maxT, err := s.importTx(ctx, tx, currencyID, TimeRange_1Y)
+		if err != nil {
+			return nil, err
+		}
+		if maxTime == nil || (maxT != nil && maxT.After(*maxTime)) {
+			maxTime = maxT
 		}
 	}
 
-	if err = s.importTx(ctx, tx, currencyID, TimeRange_1M); err != nil {
-		return err
+	maxT, err := s.importTx(ctx, tx, currencyID, TimeRange_1M)
+	if err != nil {
+		return nil, err
+	}
+	if maxTime == nil || (maxT != nil && maxT.After(*maxTime)) {
+		maxTime = maxT
 	}
 
-	return nil
+	return maxTime, nil
 }
 
-func (s *Service) importTx(ctx context.Context, tx domain.Tx, currencyID uint, timeRange string) (err error) {
+func (s *Service) importTx(ctx context.Context, tx domain.Tx, currencyID uint, timeRange string) (maxTime *time.Time, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("[%w] Recover from panic: %v", apperror.ErrInternal, r)
+		}
+	}()
+
 	if err = TimeRangeValidate(timeRange); err != nil {
-		return err
+		return nil, err
 	}
 
 	item, err := s.cmcApi.GetAnalytics(ctx, currencyID, timeRange)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = s.replicaSet.WriteRepo().MUpsertTx(ctx, tx, item.Slice()); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return item.MaxTime(), nil
 }

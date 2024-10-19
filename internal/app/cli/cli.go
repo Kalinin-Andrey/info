@@ -66,7 +66,9 @@ func New(ctx context.Context, appName string, coreApp *app.App, apicfg *config.A
 }
 
 func (app *App) init() {
-	app.rootCmd.AddCommand()
+	app.rootCmd.AddCommand(
+		currencyCollector,
+	)
 	app.buildHandler()
 }
 

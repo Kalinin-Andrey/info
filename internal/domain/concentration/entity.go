@@ -26,4 +26,18 @@ func (l *ConcentrationList) Slice() *[]Concentration {
 	return &res
 }
 
+func (l *ConcentrationList) MaxTime() *time.Time {
+	if l == nil || len(*l) == 0 {
+		return nil
+	}
+	max := (*l)[0].D
+	var item Concentration
+	for _, item = range *l {
+		if item.D.After(max) {
+			max = item.D
+		}
+	}
+	return &max
+}
+
 type ConcentrationMap map[uint]ConcentrationList

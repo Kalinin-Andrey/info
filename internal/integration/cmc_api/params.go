@@ -80,7 +80,7 @@ func (e *DetailChartData) PriceAndCapList() (*price_and_cap.PriceAndCapList, err
 	return &res, nil
 }
 
-type DetailChartPoints map[uint]DetailChartPoint
+type DetailChartPoints map[string]DetailChartPoint
 
 type DetailChartPoint struct {
 	V []float64 `json:"v"`
@@ -126,7 +126,7 @@ type HistoricalConcentrationDetailsPoint struct {
 
 func (e *GetAnalyticsData) ConcentrationList() (*concentration.ConcentrationList, error) {
 	if e == nil || e.HistoricalConcentration == nil || e.HistoricalConcentration.HistoricalConcentrationDetails == nil || len(*e.HistoricalConcentration.HistoricalConcentrationDetails) == 0 || e.CurrencyID == 0 {
-		return nil, apperror.ErrNotFound
+		return &concentration.ConcentrationList{}, nil
 	}
 	return e.HistoricalConcentration.ConcentrationList(e.CurrencyID)
 }

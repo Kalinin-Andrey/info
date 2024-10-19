@@ -26,4 +26,18 @@ func (l *PriceAndCapList) Slice() *[]PriceAndCap {
 	return &res
 }
 
+func (l *PriceAndCapList) MaxTime() *time.Time {
+	if l == nil || len(*l) == 0 {
+		return nil
+	}
+	max := (*l)[0].Ts
+	var item PriceAndCap
+	for _, item = range *l {
+		if item.Ts.After(max) {
+			max = item.Ts
+		}
+	}
+	return &max
+}
+
 type PriceAndCapMap map[uint]PriceAndCapList

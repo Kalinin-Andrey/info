@@ -32,7 +32,7 @@ func NewConcentrationRepository(repository *Repository) *ConcentrationRepository
 const (
 	MUpsertConcentration_Limit = 11000 // 6 пар-ра * 13т = 65т ~= max
 
-	concentration_sql_MGet                       = "SELECT currency_id, whales, investors, retail, d FROM cmc.concentration FROM blog.blog WHERE currency_id = any($1);"
+	concentration_sql_MGet                       = "SELECT currency_id, whales, investors, retail, d FROM cmc.concentration WHERE currency_id = any($1);"
 	concentration_sql_Upsert                     = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, d) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail;"
 	concentration_sql_MUpsert                    = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, d) VALUES "
 	concentration_sql_MUpsert_OnConflictDoUpdate = " ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail;"
@@ -128,7 +128,7 @@ func (r ConcentrationRepository) mUpsertTx(ctx context.Context, tx domain.Tx, en
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	const metricName = "ConcentrationRepository.mUpsertTx"
-	const fields_nb = 6 // при изменении количества полей нужно изменить MUpsertNmDimensions_Limit, чтобы, в результате, кол-во пар-ов не превышало 65т
+	const fields_nb = 5 // при изменении количества полей нужно изменить MUpsertNmDimensions_Limit, чтобы, в результате, кол-во пар-ов не превышало 65т
 	if len(*entities) == 0 {
 		return nil
 	}
@@ -139,7 +139,7 @@ func (r ConcentrationRepository) mUpsertTx(ctx context.Context, tx domain.Tx, en
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		b.WriteString("($" + strconv.Itoa(i*fields_nb+1) + ", $" + strconv.Itoa(i*fields_nb+2) + ", $" + strconv.Itoa(i*fields_nb+3) + ", $" + strconv.Itoa(i*fields_nb+4) + ", $" + strconv.Itoa(i*fields_nb+5) + ", $" + strconv.Itoa(i*fields_nb+6) + ")")
+		b.WriteString("($" + strconv.Itoa(i*fields_nb+1) + ", $" + strconv.Itoa(i*fields_nb+2) + ", $" + strconv.Itoa(i*fields_nb+3) + ", $" + strconv.Itoa(i*fields_nb+4) + ", $" + strconv.Itoa(i*fields_nb+5) + ")")
 		params = append(params, entity.CurrencyID, entity.Whales, entity.Investors, entity.Retail, entity.D)
 	}
 	b.WriteString(concentration_sql_MUpsert_OnConflictDoUpdate)

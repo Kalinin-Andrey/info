@@ -83,34 +83,55 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 
 	}()
 
-	importMaxTimeList, err := s.replicaSet.WriteRepo().GetImportMaxTimeForUpdate(ctx, tx, currencyList.IDs())
+	importMaxTimeMap, err := s.replicaSet.WriteRepo().GetImportMaxTimeForUpdateTx(ctx, tx, currencyList.IDs())
 	if err != nil {
 		return err
 	}
 
 	var importMaxTimeItem ImportMaxTime
-	for _, importMaxTimeItem = range *importMaxTimeList {
-		if err = s.priceAndCap.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.PriceAndCap); err != nil {
+	var currency Currency
+	var ok bool
+	for _, currency = range *currencyList {
+		importMaxTimeItem, ok = importMaxTimeMap[currency.ID]
+		if !ok {
+			importMaxTimeItem = ImportMaxTime{
+				CurrencyID: currency.ID,
+			}
+		}
+
+		if importMaxTimeItem.PriceAndCap, err = s.priceAndCap.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.PriceAndCap); err != nil {
 			return err
 		}
-		if err = s.concentration.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.Concentration); err != nil {
+		if importMaxTimeItem.Concentration, err = s.concentration.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.Concentration); err != nil {
 			return err
 		}
+
+		importMaxTimeMap[currency.ID] = importMaxTimeItem
 	}
 
-	return nil
+	return s.replicaSet.WriteRepo().MUpsertImportMaxTimeMapTx(ctx, tx, importMaxTimeMap)
 }
 
 func (s *Service) baseImport(ctx context.Context, listOfCurrencySlugs *[]string) (currencyList *CurrencyList, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("[%w] Recover from panic: %v", apperror.ErrInternal, r)
+		}
+	}()
+
 	if listOfCurrencySlugs == nil || len(*listOfCurrencySlugs) == 0 {
 		return nil, nil
 	}
 
 	exists, err := s.replicaSet.ReadRepo().MGetBySlug(ctx, listOfCurrencySlugs)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, apperror.ErrNotFound) {
+			return nil, err
+		}
+		l := make(CurrencyList, 0, len(*listOfCurrencySlugs))
+		exists = &l
 	}
-	notExistsSlugs := make([]string, 0, len(*listOfCurrencySlugs))
+	notExistsSlugs := make([]string, 0, len(*listOfCurrencySlugs)-len(*exists))
 	existsSlugsMap := make(map[string]struct{})
 	var item Currency
 	for _, item = range *exists {
@@ -142,16 +163,33 @@ func (s *Service) baseImportBySlug(ctx context.Context, listOfCurrencySlugs *[]s
 
 	var slug string
 	var item *Currency
-	importedCurrency := make(CurrencyList, len(*listOfCurrencySlugs))
+	importedCurrency := make(CurrencyList, 0, len(*listOfCurrencySlugs))
 	for _, slug = range *listOfCurrencySlugs {
 		if item, err = s.cmcApi.GetCurrency(ctx, slug); err != nil {
 			return nil, err
 		}
+		item.IsForObserving = true
 		_, err = s.replicaSet.WriteRepo().Create(ctx, item)
 		if err != nil {
 			return nil, err
 		}
 		importedCurrency = append(importedCurrency, *item)
 	}
-	return &importedCurrency, nil
+	return &importedCurrency, s.createEmptyImportMaxTime(ctx, importedCurrency.IDs())
+}
+
+func (s *Service) createEmptyImportMaxTime(ctx context.Context, IDs *[]uint) error {
+	if IDs == nil || len(*IDs) == 0 {
+		return nil
+	}
+
+	maxTimeList := make([]ImportMaxTime, 0, len(*IDs))
+	var ID uint
+	for _, ID = range *IDs {
+		maxTimeList = append(maxTimeList, ImportMaxTime{
+			CurrencyID: ID,
+		})
+	}
+
+	return s.replicaSet.WriteRepo().MCreateImportMaxTime(ctx, &maxTimeList)
 }

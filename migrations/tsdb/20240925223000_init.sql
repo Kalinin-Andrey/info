@@ -24,7 +24,7 @@ create table cmc.import_max_time
     currency_id                         bigint                  not null,
     price_and_cap                       timestamp               null,
     concentration                       timestamp               null,
-    CONSTRAINT import_max_time__currency_id__fk FOREIGN KEY (id) REFERENCES cmc.currency(id)
+    CONSTRAINT import_max_time__currency_id__fk FOREIGN KEY (currency_id) REFERENCES cmc.currency(id)
 );
 
 create unique index import_max_time__currency_id__pk ON cmc.import_max_time (currency_id) include (price_and_cap, concentration);
@@ -55,9 +55,9 @@ create table cmc.concentration
     CONSTRAINT concentration__currency_id__fk FOREIGN KEY (currency_id) REFERENCES cmc.currency(id)
 );
 
-create unique index concentration__currency_id__ts__pk ON cmc.concentration (currency_id, ts) include (whales, investors, retail);
+create unique index concentration__currency_id__ts__pk ON cmc.concentration (currency_id, d) include (whales, investors, retail);
 
-select public.create_hypertable('cmc.concentration', 'ts', chunk_time_interval => INTERVAL '1 year');
+select public.create_hypertable('cmc.concentration', 'd', chunk_time_interval => INTERVAL '1 year');
 
 
 
