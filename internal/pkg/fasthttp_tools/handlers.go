@@ -4,77 +4,39 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
-
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/valyala/fasthttp"
+	"info/internal/pkg/apperror"
+	"strconv"
 )
 
 const (
-	UserCtxField  = "logger.userId"
-	TxIdCtxField  = "logger.txId"
-	SumCtxField   = "logger.sum"
-	StateCtxField = "logger.state"
-
 	AuthClientKey = "http.client"
 	RequestIdKey  = "http.requestId"
 )
 
 var stopList = map[string]struct{}{}
 
-func parseUserID(ctx *fasthttp.RequestCtx) (string, error) {
-	v, ok := ctx.UserValue("user_id").(string)
-	if !ok {
-		return "", errors.New("invalid userId")
-	}
-
-	if len(v) > 20 {
-		return "", errors.New("invalid userId")
-	}
-
-	ctx.SetUserValue(UserCtxField, v)
-
-	if _, ok := stopList[v]; ok {
-		return "", errors.New("stoplist")
-	}
-
-	return v, nil
-}
-
-func parsePaymentID(ctx *fasthttp.RequestCtx) (uuid.UUID, error) {
-	v, ok := ctx.UserValue("payment_id").(string)
-	if !ok {
-		return uuid.Nil, errors.New("invalid payment_id")
-	}
-	return uuid.FromString(v)
-}
-
-func parseNonNegativeSum(ctx *fasthttp.RequestCtx) (int64, error) {
-	sumV := string(ctx.QueryArgs().Peek("sum"))
-	sum, err := strconv.ParseInt(sumV, 10, 64)
+func ParseQueryArgUint(ctx *fasthttp.RequestCtx, name string) (uint, error) {
+	valStr, err := ParseQueryArgString(ctx, name)
 	if err != nil {
-		return 0, fmt.Errorf("invalid sum value: %w", err)
+		return 0, err
 	}
 
-	if sum < 0 {
-		return 0, errors.New("negative sum")
+	val, err := strconv.ParseUint(valStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("[%w] failed to parse uint param %s; error: %w", apperror.ErrBadRequest, name, err)
 	}
 
-	ctx.SetUserValue(SumCtxField, sumV)
-
-	return sum, nil
+	return uint(val), nil
 }
 
-func parseTxID(ctx *fasthttp.RequestCtx) (string, error) {
-	txId := string(ctx.QueryArgs().Peek("tx_id"))
-	if txId == "" {
-		return "", fmt.Errorf("invalid txId value: %s", txId)
+func ParseQueryArgString(ctx *fasthttp.RequestCtx, name string) (string, error) {
+	val := string(ctx.QueryArgs().Peek(name))
+	if val == "" {
+		return "", fmt.Errorf("[%w] empty param %s", apperror.ErrNotFound, name)
 	}
 
-	ctx.SetUserValue(TxIdCtxField, txId)
-
-	return txId, nil
+	return val, nil
 }
 
 func BadRequest(ctx *fasthttp.RequestCtx, err error) {

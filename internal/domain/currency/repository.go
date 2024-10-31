@@ -26,5 +26,5 @@ type ReadRepository interface {
 	GetBySlug(ctx context.Context, slug string) (*Currency, error)
 	MGet(ctx context.Context, IDs *[]uint) (*CurrencyList, error)
 	MGetBySlug(ctx context.Context, slugs *[]string) (*CurrencyList, error)
-	GetAll(ctx context.Context) (*[]Currency, error)
+	GetAll(ctx context.Context) (*CurrencyList, error)
 }

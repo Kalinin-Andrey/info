@@ -4,6 +4,12 @@ import "time"
 
 const ()
 
+type ImportMaxTime struct {
+	CurrencyID    uint
+	PriceAndCap   *time.Time
+	Concentration *time.Time
+}
+
 type Currency struct {
 	ID             uint
 	Symbol         string
@@ -30,8 +36,4 @@ func (l *CurrencyList) IDs() *[]uint {
 	return &res
 }
 
-type ImportMaxTime struct {
-	CurrencyID    uint
-	PriceAndCap   *time.Time
-	Concentration *time.Time
-}
+type CurrencyMap map[uint]Currency

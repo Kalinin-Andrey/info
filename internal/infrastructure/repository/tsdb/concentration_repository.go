@@ -32,7 +32,7 @@ func NewConcentrationRepository(repository *Repository) *ConcentrationRepository
 const (
 	MUpsertConcentration_Limit = 11000 // 6 пар-ра * 13т = 65т ~= max
 
-	concentration_sql_MGet                       = "SELECT currency_id, whales, investors, retail, d FROM cmc.concentration WHERE currency_id = any($1);"
+	concentration_sql_MGet                       = "SELECT currency_id, whales, investors, retail, d FROM cmc.concentration WHERE currency_id = any($1) ORDER BY d DESC;"
 	concentration_sql_Upsert                     = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, d) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail;"
 	concentration_sql_MUpsert                    = "INSERT INTO cmc.concentration(currency_id, whales, investors, retail, d) VALUES "
 	concentration_sql_MUpsert_OnConflictDoUpdate = " ON CONFLICT (currency_id, d) DO UPDATE SET whales = EXCLUDED.whales, investors = EXCLUDED.investors, retail = EXCLUDED.retail;"

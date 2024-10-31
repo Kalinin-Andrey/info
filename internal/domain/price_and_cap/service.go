@@ -44,6 +44,10 @@ func TimeRangeValidate(s string) error {
 	return validation.Validate(s, validation.Required, validation.In(TimeRangeList...))
 }
 
+func (s *Service) MGet(ctx context.Context, currencyIDs *[]uint) (PriceAndCapMap, error) {
+	return s.replicaSet.ReadRepo().MGet(ctx, currencyIDs)
+}
+
 func (s *Service) Upsert(ctx context.Context, entity *PriceAndCap) error {
 	return s.replicaSet.WriteRepo().Upsert(ctx, entity)
 }

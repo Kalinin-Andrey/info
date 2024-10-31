@@ -8,6 +8,12 @@ import (
 	"info/internal/domain/concentration"
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
+	"math"
+	"time"
+)
+
+const (
+	defaultCapacity = 100
 )
 
 type CmcApi interface {
@@ -46,7 +52,7 @@ func (s *Service) Get(ctx context.Context, ID uint) (*Currency, error) {
 	return s.replicaSet.ReadRepo().Get(ctx, ID)
 }
 
-func (s *Service) GetAll(ctx context.Context) (*[]Currency, error) {
+func (s *Service) GetAll(ctx context.Context) (*CurrencyList, error) {
 	return s.replicaSet.ReadRepo().GetAll(ctx)
 }
 
@@ -192,4 +198,139 @@ func (s *Service) createEmptyImportMaxTime(ctx context.Context, IDs *[]uint) err
 	}
 
 	return s.replicaSet.WriteRepo().MCreateImportMaxTime(ctx, &maxTimeList)
+}
+
+func (s *Service) Report_BiggestFall(ctx context.Context, limit uint) (*WhaleFallList, error) {
+	l, err := s.getWhaleFallList(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return l.SortByFallValueDesc().Limit(limit), nil
+}
+
+func (s *Service) Report_LongestFall(ctx context.Context, limit uint) (*WhaleFallList, error) {
+	l, err := s.getWhaleFallList(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return l.SortByFallDurationDesc().Limit(limit), nil
+}
+
+func (s *Service) getWhaleFallList(ctx context.Context) (*WhaleFallList, error) {
+	currencyList, err := s.replicaSet.ReadRepo().GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	currencyIDs := currencyList.IDs()
+
+	priceAndCapMap, err := s.priceAndCap.MGet(ctx, currencyIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	concentrationMap, err := s.concentration.MGet(ctx, currencyIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.calcWhaleFallList(currencyList, priceAndCapMap, concentrationMap), nil
+}
+
+func (s *Service) calcWhaleFallList(currencyList *CurrencyList, priceAndCapMap price_and_cap.PriceAndCapMap, concentrationMap concentration.ConcentrationMap) *WhaleFallList {
+	if currencyList == nil || priceAndCapMap == nil || concentrationMap == nil {
+		return nil
+	}
+	var ok bool
+	var currency Currency
+	var priceAndCapList price_and_cap.PriceAndCapList
+	var concentrationList concentration.ConcentrationList
+	res := make(WhaleFallList, 0, len(*currencyList))
+
+	for _, currency = range *currencyList {
+		if priceAndCapList, ok = priceAndCapMap[currency.ID]; !ok {
+			continue
+		}
+		if concentrationList, ok = concentrationMap[currency.ID]; !ok {
+			continue
+		}
+
+		res = append(res, *s.calcWhaleFall(&currency, &priceAndCapList, &concentrationList))
+	}
+
+	return &res
+}
+
+func (s *Service) calcWhaleFall(currency *Currency, priceAndCapList *price_and_cap.PriceAndCapList, concentrationList *concentration.ConcentrationList) *WhaleFall {
+	if currency == nil || priceAndCapList == nil || concentrationList == nil {
+		return nil
+	}
+	const (
+		maxPeriod = time.Hour * 24 * 61
+		maxBreak  = time.Hour * 24 * 5
+	)
+	now := time.Now()
+	minTime := now.Add(-maxPeriod)
+	var i int
+	var prev, next, valueFrom, valueTo, localStart *concentration.Concentration
+
+	for i = range *concentrationList {
+		prev = &(*concentrationList)[i]
+		// первую итерацию просто пропустим
+		if i == 0 {
+			next = prev
+			continue
+		}
+		if minTime.After(prev.D) {
+			break
+		}
+
+		// если это не спад, то пропустим
+		if next.Whales >= prev.Whales {
+			// проверим на maxBreak
+			if localStart != nil && localStart.D.Sub(prev.D) >= maxBreak {
+				break
+			}
+			next = prev
+			continue
+		}
+
+		if valueTo == nil {
+			valueTo = next
+		}
+		localStart = prev
+
+		next = prev
+	}
+	if localStart != nil {
+		valueFrom = localStart
+	}
+	if valueFrom == nil || valueTo == nil {
+		return nil
+	}
+
+	priceAndCapFrom := priceAndCapList.AvgInDay(valueFrom.D)
+	priceAndCapTo := priceAndCapList.AvgInDay(valueTo.D)
+
+	return &WhaleFall{
+		Symbol:           currency.Symbol,
+		FallDuration:     valueTo.D.Sub(valueFrom.D),
+		DayFrom:          valueFrom.D,
+		DayTo:            valueTo.D,
+		FallValue:        valueFrom.Whales - valueTo.Whales,
+		ValueFrom:        valueFrom.Whales,
+		ValueTo:          valueTo.Whales,
+		FallValuePercent: round(((valueTo.Whales * 100) / valueFrom.Whales)),
+		FallCap:          priceAndCapFrom.Cap - priceAndCapTo.Cap,
+		CapFrom:          priceAndCapFrom.Cap,
+		CapTo:            priceAndCapTo.Cap,
+		FallCapPercent:   round(((priceAndCapTo.Cap * 100) / priceAndCapFrom.Cap)),
+		FallPrice:        priceAndCapFrom.Price - priceAndCapTo.Price,
+		PriceFrom:        priceAndCapFrom.Price,
+		PriceTo:          priceAndCapTo.Price,
+		FallPricePercent: round(((priceAndCapTo.Price * 100) / priceAndCapFrom.Price)),
+	}
+}
+
+func round(v float64) float64 {
+	return math.Round(v*100) / 100
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
+	"info/internal/app/restapi/controller"
 	"net/http"
 	"strconv"
 	"time"
@@ -88,10 +89,11 @@ func (a *RestAPI) buildHandler() {
 
 	r := routing.New()
 	r.Use(a.RecoverInterceptorMiddleware, a.SetResponseHeaderMiddleware("Content-Type", "application/json; charset=utf-8"), a.RequestIdInterceptorMiddleware, a.httpServerMetricMiddleware)
-	//api := r.Group("/api/v1")
+	api := r.Group("/api/v1")
 
-	//blogController := controller.NewBlogController(r, a.Domain.Currency)
-	//api.Get("/rating/<sellerID>", blogController.Get)
+	cmcController := controller.NewCmcController(a.logger, r, a.Domain.Currency)
+	api.Get("/cmc/report/whale-biggest-fall", cmcController.Report_BiggestFall)
+	api.Get("/cmc/report/whale-longest-fall", cmcController.Report_LongestFall)
 
 	a.serverRestAPI.Handler = r.HandleRequest
 }

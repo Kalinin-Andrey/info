@@ -72,11 +72,11 @@ func (r *BlogRepository) MSet(ctx context.Context, ratingList *[]blog.Currency) 
 	return nil
 }
 
-// Get получаем по SellerOldId из редиса запись с рейтингом
-func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Currency, error) {
-	const metricName = "BlogRepository.Get"
+// Report_BiggestFall получаем по SellerOldId из редиса запись с рейтингом
+func (r *BlogRepository) Report_BiggestFall(ctx context.Context, sellerID uint) (*blog.Currency, error) {
+	const metricName = "BlogRepository.Report_BiggestFall"
 	start := time.Now().UTC()
-	ratingProtoB, err := r.DB().Get(ctx, r.ratingKey(sellerID)).Bytes()
+	ratingProtoB, err := r.DB().Report_BiggestFall(ctx, r.ratingKey(sellerID)).Bytes()
 	if err != nil {
 		if err.Error() == RedisNil {
 			r.metrics.Inc(metricName, metricsSuccess)
@@ -85,7 +85,7 @@ func (r *BlogRepository) Get(ctx context.Context, sellerID uint) (*blog.Currency
 		}
 		r.metrics.Inc(metricName, metricsFail)
 		r.metrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] "+metricName+" r.DB().Get() error: %w", apperror.ErrInternal, err)
+		return nil, fmt.Errorf("[%w] "+metricName+" r.DB().Report_BiggestFall() error: %w", apperror.ErrInternal, err)
 	}
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)
@@ -119,7 +119,7 @@ func (r *BlogRepository) MGet(ctx context.Context, sellerIDs *[]uint) (*[]blog.C
 		}
 		r.metrics.Inc(metricName, metricsFail)
 		r.metrics.WriteTiming(start, metricName, metricsFail)
-		return nil, fmt.Errorf("[%w] "+metricName+" r.DB().Get() error: %w", apperror.ErrInternal, err)
+		return nil, fmt.Errorf("[%w] "+metricName+" r.DB().Report_BiggestFall() error: %w", apperror.ErrInternal, err)
 	}
 	r.metrics.Inc(metricName, metricsSuccess)
 	r.metrics.WriteTiming(start, metricName, metricsSuccess)

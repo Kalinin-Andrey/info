@@ -35,7 +35,7 @@ const (
 	currency_sql_GetImportMaxTimeForUpdate = "SELECT currency_id, price_and_cap, concentration FROM cmc.import_max_time WHERE currency_id = ANY($1) FOR UPDATE;"
 	currency_sql_MGet                      = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE id = any($1);"
 	currency_sql_MGetBySlug                = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE slug = any($1);"
-	currency_sql_GetAll                    = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency;"
+	currency_sql_GetAll                    = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE is_for_observing = TRUE;"
 	currency_sql_Create                    = "INSERT INTO cmc.currency(id, symbol, slug, name, is_for_observing) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id;"
 	currency_sql_Update                    = "UPDATE cmc.currency SET symbol = $2, slug = $3, name = $4, is_for_observing = $5 WHERE id = $1;"
 	currency_sql_Delete                    = "DELETE FROM cmc.currency WHERE id = $1;"
@@ -208,13 +208,13 @@ func (r *CurrencyRepository) MGetBySlug(ctx context.Context, slugs *[]string) (*
 	return &res, nil
 }
 
-func (r *CurrencyRepository) GetAll(ctx context.Context) (*[]currency.Currency, error) {
+func (r *CurrencyRepository) GetAll(ctx context.Context) (*currency.CurrencyList, error) {
 	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	//defer cancel()
 	const metricName = "CurrencyRepository.GetAll"
 
 	var entity currency.Currency
-	res := make([]currency.Currency, 0, defaultCapacityForResult)
+	res := make(currency.CurrencyList, 0, defaultCapacityForResult)
 
 	start := time.Now().UTC()
 	rows, err := r.db.Query(ctx, currency_sql_GetAll)
