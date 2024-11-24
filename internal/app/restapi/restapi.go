@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"info/internal/app/restapi/controller"
+	"info/internal/pkg/log_key"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -105,10 +107,11 @@ func (a *RestAPI) SetResponseHeaderMiddleware(key string, value string) func(rct
 	}
 }
 
-func (a *RestAPI) RecoverInterceptorMiddleware(rctx *routing.Context) error {
+func (a *RestAPI) RecoverInterceptorMiddleware(rctx *routing.Context) (err error) {
+	const metricName = "restapi.RestAPI.RecoverInterceptorMiddleware"
 	defer func() {
 		if r := recover(); r != nil {
-			a.logger.Error("PanicInterceptor", zap.Error(fmt.Errorf("%v", r)))
+			a.logger.Error("PanicInterceptor", zap.Error(fmt.Errorf("%v", r)), zap.String(log_key.ErrorStacktrace, string(debug.Stack())))
 			fasthttp_tools.InternalError(rctx.RequestCtx, fmt.Errorf("%v", r))
 		}
 	}()

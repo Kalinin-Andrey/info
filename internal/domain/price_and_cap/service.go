@@ -2,9 +2,11 @@ package price_and_cap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"info/internal/domain"
 	"info/internal/pkg/apperror"
+	"runtime/debug"
 	"time"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -53,9 +55,10 @@ func (s *Service) Upsert(ctx context.Context, entity *PriceAndCap) error {
 }
 
 func (s *Service) ImportTx(ctx context.Context, tx domain.Tx, currencyID uint, importLastTime *time.Time) (maxTime *time.Time, err error) {
+	const metricName = "price_and_cap.Service.ImportTx"
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("[%w] Recover from panic: %v", apperror.ErrInternal, r)
+			err = errors.Join(err, fmt.Errorf("[%w] "+metricName+" Recover from panic: %v; stacktrace from panic: %s", apperror.ErrInternal, r, string(debug.Stack())))
 		}
 	}()
 
@@ -91,9 +94,10 @@ func (s *Service) ImportTx(ctx context.Context, tx domain.Tx, currencyID uint, i
 }
 
 func (s *Service) importTx(ctx context.Context, tx domain.Tx, currencyID uint, timeRange string) (maxTime *time.Time, err error) {
+	const metricName = "price_and_cap.Service.importTx"
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("[%w] Recover from panic: %v", apperror.ErrInternal, r)
+			err = errors.Join(err, fmt.Errorf("[%w] "+metricName+" Recover from panic: %v; stacktrace from panic: %s", apperror.ErrInternal, r, string(debug.Stack())))
 		}
 	}()
 

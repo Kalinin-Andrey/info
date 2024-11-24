@@ -9,6 +9,7 @@ import (
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"math"
+	"runtime/debug"
 	"time"
 )
 
@@ -57,6 +58,7 @@ func (s *Service) GetAll(ctx context.Context) (*CurrencyList, error) {
 }
 
 func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (err error) {
+	const metricName = "currency.Service.ImportTx"
 	var tx domain.Tx
 
 	currencyList, err := s.baseImport(ctx, listOfCurrencySlugs)
@@ -71,19 +73,19 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("[%w] Recover from panic: %v", apperror.ErrInternal, r)
+			err = errors.Join(err, fmt.Errorf("[%w] "+metricName+" Recover from panic: %v; stacktrace from panic: %s", apperror.ErrInternal, r, string(debug.Stack())))
 		}
 
 		if err == nil {
 			if err = tx.Commit(ctx); err == nil {
 				return
 			}
-			err = fmt.Errorf("[%w] Commit error: %w", apperror.ErrInternal, err)
+			err = fmt.Errorf("[%w] "+metricName+" Commit error: %w", apperror.ErrInternal, err)
 		}
 
 		if tx != nil {
 			if err2 := tx.Rollback(ctx); err2 != nil {
-				err = errors.Join(err, fmt.Errorf("[%w] Rollback error: %w", apperror.ErrInternal, err))
+				err = errors.Join(err, fmt.Errorf("[%w] "+metricName+" Rollback error: %w", apperror.ErrInternal, err))
 			}
 		}
 
@@ -119,9 +121,10 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 }
 
 func (s *Service) baseImport(ctx context.Context, listOfCurrencySlugs *[]string) (currencyList *CurrencyList, err error) {
+	const metricName = "currency.Service.baseImport"
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("[%w] Recover from panic: %v", apperror.ErrInternal, r)
+			err = errors.Join(err, fmt.Errorf("[%w] "+metricName+" Recover from panic: %v; stacktrace from panic: %s", apperror.ErrInternal, r, string(debug.Stack())))
 		}
 	}()
 

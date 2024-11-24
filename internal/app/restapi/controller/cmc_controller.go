@@ -31,74 +31,76 @@ func NewCmcController(logger *zap.Logger, router *routing.Router, service *curre
 
 func (c *cmcController) Report_BiggestFall(rctx *routing.Context) (err error) {
 	const metricName = "transitTariffController.Report_BiggestFall"
+	ctx := rctx.RequestCtx
 	var res *fasthttp_tools.Response
 
-	limit, err := fasthttp_tools.ParseQueryArgUint(rctx.RequestCtx, "limit")
+	limit, err := fasthttp_tools.ParseQueryArgUint(ctx, "limit")
 	if err != nil {
 		if !errors.Is(err, apperror.ErrNotFound) {
 			errMsg := "Parse params error "
 			c.logger.Error(errMsg, zap.String(log_key.Func, metricName), zap.Error(err))
 			res = fasthttp_tools.NewResponse_ErrBadRequest(errMsg + err.Error())
-			fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusBadRequest, *res)
+			fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusBadRequest, *res)
 			return nil
 		}
 		limit = defaultLimit4Report
 	}
 
-	report, err := c.service.Report_BiggestFall(limit)
+	report, err := c.service.Report_BiggestFall(ctx, limit)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			errMsg := "Data for Report_BiggestFall was not found"
 			c.logger.Error(errMsg, zap.String(log_key.Func, metricName), zap.Error(err))
 			res = fasthttp_tools.NewResponse_ErrNotFound(errMsg)
-			fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusNotFound, *res)
+			fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusNotFound, *res)
 			return nil
 		}
 		errMsg := "Failed to get Report_BiggestFall"
 		c.logger.Error(errMsg, zap.String(log_key.Func, metricName), zap.Error(err))
 		res = fasthttp_tools.NewResponse_ErrInternal()
-		fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusInternalServerError, *res)
+		fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusInternalServerError, *res)
 		return nil
 	}
 
 	res = fasthttp_tools.NewResponse_Success(report)
-	fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusOK, *res)
+	fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusOK, *res)
 	return nil
 }
 
 func (c *cmcController) Report_LongestFall(rctx *routing.Context) (err error) {
 	const metricName = "transitTariffController.Report_BiggestFall"
+	ctx := rctx.RequestCtx
 	var res *fasthttp_tools.Response
 
-	limit, err := fasthttp_tools.ParseQueryArgUint(rctx.RequestCtx, "limit")
+	limit, err := fasthttp_tools.ParseQueryArgUint(ctx, "limit")
 	if err != nil {
 		if !errors.Is(err, apperror.ErrNotFound) {
 			errMsg := "Parse params error "
 			c.logger.Error(errMsg, zap.String(log_key.Func, metricName), zap.Error(err))
 			res = fasthttp_tools.NewResponse_ErrBadRequest(errMsg + err.Error())
-			fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusBadRequest, *res)
+			fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusBadRequest, *res)
 			return nil
 		}
 		limit = defaultLimit4Report
 	}
 
-	report, err := c.service.Report_LongestFall(limit)
+	report, err := c.service.Report_LongestFall(ctx, limit)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			errMsg := "Data for Report_BiggestFall was not found"
 			c.logger.Error(errMsg, zap.String(log_key.Func, metricName), zap.Error(err))
 			res = fasthttp_tools.NewResponse_ErrNotFound(errMsg)
-			fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusNotFound, *res)
+			fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusNotFound, *res)
 			return nil
 		}
 		errMsg := "Failed to get Report_BiggestFall"
 		c.logger.Error(errMsg, zap.String(log_key.Func, metricName), zap.Error(err))
 		res = fasthttp_tools.NewResponse_ErrInternal()
-		fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusInternalServerError, *res)
+		fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusInternalServerError, *res)
 		return nil
 	}
 
 	res = fasthttp_tools.NewResponse_Success(report)
-	fasthttp_tools.FastHTTPWriteResult(rctx.RequestCtx, fasthttp.StatusOK, *res)
+	fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusOK, *res)
 	return nil
 }
