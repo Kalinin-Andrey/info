@@ -22,7 +22,7 @@ func FastHTTPWriteResult(ctx *fasthttp.RequestCtx, status int, data interface{})
 		}
 
 		if _, err := ctx.Write(body); err != nil {
-			return fmt.Errorf("Write(body) error: %w", err)
+			return fmt.Errorf(metricName+"Write(body) error: %w", err)
 		}
 	}
 	ctx.SetStatusCode(status)

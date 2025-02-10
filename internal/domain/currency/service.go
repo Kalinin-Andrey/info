@@ -2,6 +2,7 @@ package currency
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"info/internal/domain"
@@ -99,17 +100,20 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 	var importMaxTimeItem ImportMaxTime
 	var currency Currency
 	var ok bool
-	for _, currency = range *currencyList {
+	var i int
+	for i, currency = range *currencyList {
 		importMaxTimeItem, ok = importMaxTimeMap[currency.ID]
 		if !ok {
 			importMaxTimeItem = ImportMaxTime{
 				CurrencyID: currency.ID,
 			}
 		}
-
+		fmt.Printf("%d. %s\n", i, currency.Symbol)
+		time.Sleep(5 * time.Second)
 		if importMaxTimeItem.PriceAndCap, err = s.priceAndCap.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.PriceAndCap); err != nil {
 			return err
 		}
+		time.Sleep(5 * time.Second)
 		if importMaxTimeItem.Concentration, err = s.concentration.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.Concentration); err != nil {
 			return err
 		}
@@ -244,20 +248,30 @@ func (s *Service) calcWhaleFallList(currencyList *CurrencyList, priceAndCapMap p
 		return nil
 	}
 	var ok bool
+	var i int
 	var currency Currency
 	var priceAndCapList price_and_cap.PriceAndCapList
 	var concentrationList concentration.ConcentrationList
+	var item *WhaleFall
 	res := make(WhaleFallList, 0, len(*currencyList))
 
-	for _, currency = range *currencyList {
+	for i, currency = range *currencyList {
+		if i == 91 {
+			fmt.Println(".")
+		}
 		if priceAndCapList, ok = priceAndCapMap[currency.ID]; !ok {
 			continue
 		}
 		if concentrationList, ok = concentrationMap[currency.ID]; !ok {
 			continue
 		}
-
-		res = append(res, *s.calcWhaleFall(&currency, &priceAndCapList, &concentrationList))
+		item = s.calcWhaleFall(&currency, &priceAndCapList, &concentrationList)
+		if item == nil {
+			currencyJson, _ := json.Marshal(currency)
+			fmt.Printf("calcWhaleFall: empty result for currency: %s", string(currencyJson))
+			continue
+		}
+		res = append(res, *item)
 	}
 
 	return &res
@@ -268,14 +282,16 @@ func (s *Service) calcWhaleFall(currency *Currency, priceAndCapList *price_and_c
 		return nil
 	}
 	const (
-		maxPeriod = time.Hour * 24 * 61
-		maxBreak  = time.Hour * 24 * 5
+		maxPeriod = time.Hour * 24 * 61 // Максимальный период времени, который смотрим
+		maxBreak  = time.Hour * 24 * 5  // Максимальный перерыв в тренде
 	)
 	now := time.Now()
+	// minTime: ограничение, дальше которого не смотрим
 	minTime := now.Add(-maxPeriod)
+	var inFall bool
 	var i int
 	var prev, next, valueFrom, valueTo, localStart *concentration.Concentration
-
+	// т.к. concentrationList отсортирован в порядке убывания по времени, в цикле next идёт перед prev
 	for i = range *concentrationList {
 		prev = &(*concentrationList)[i]
 		// первую итерацию просто пропустим
@@ -283,31 +299,33 @@ func (s *Service) calcWhaleFall(currency *Currency, priceAndCapList *price_and_c
 			next = prev
 			continue
 		}
-		if minTime.After(prev.D) {
+		// дальше minTime не смотрим, останавливаем цикл
+		if prev.D.Before(minTime) {
 			break
 		}
 
+		if !inFall {
+			valueTo = next
+		}
+
 		// если это не спад, то пропустим
-		if next.Whales >= prev.Whales {
-			// проверим на maxBreak
-			if localStart != nil && localStart.D.Sub(prev.D) >= maxBreak {
+		if valueTo.Whales >= prev.Whales {
+			// если уже нашли падение, то проверяем на maxBreak
+			if inFall && localStart != nil && localStart.D.Sub(prev.D) >= maxBreak {
 				break
 			}
 			next = prev
 			continue
 		}
+		inFall = true
 
-		if valueTo == nil {
-			valueTo = next
-		}
 		localStart = prev
-
 		next = prev
 	}
 	if localStart != nil {
 		valueFrom = localStart
 	}
-	if valueFrom == nil || valueTo == nil {
+	if !inFall || valueFrom == nil || valueTo == nil {
 		return nil
 	}
 

@@ -62,8 +62,10 @@ func (c *cmcController) Report_BiggestFall(rctx *routing.Context) (err error) {
 		return nil
 	}
 
-	res = fasthttp_tools.NewResponse_Success(report)
-	fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusOK, *res)
+	res = fasthttp_tools.NewResponse_Success(*report)
+	if err = fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusOK, *report); err != nil {
+		c.logger.Error("fasthttp_tools.FastHTTPWriteResult error", zap.String(log_key.Func, metricName), zap.Error(err))
+	}
 	return nil
 }
 
@@ -100,7 +102,9 @@ func (c *cmcController) Report_LongestFall(rctx *routing.Context) (err error) {
 		return nil
 	}
 
-	res = fasthttp_tools.NewResponse_Success(report)
-	fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusOK, *res)
+	res = fasthttp_tools.NewResponse_Success(*report)
+	if err = fasthttp_tools.FastHTTPWriteResult(ctx, fasthttp.StatusOK, *res); err != nil {
+		c.logger.Error("fasthttp_tools.FastHTTPWriteResult error", zap.String(log_key.Func, metricName), zap.Error(err))
+	}
 	return nil
 }

@@ -64,6 +64,9 @@ func (l *WhaleFallList) Limit(limit uint) *WhaleFallList {
 	if l == nil {
 		return nil
 	}
+	if uint(len(*l)) < limit {
+		limit = uint(len(*l))
+	}
 	newList := (*l)[:limit]
 	return &newList
 }
