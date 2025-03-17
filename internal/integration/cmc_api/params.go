@@ -155,3 +155,91 @@ func (e *HistoricalConcentration) ConcentrationList(currencyID uint) (*concentra
 	}
 	return &res, nil
 }
+
+type CurrencyQuotesResponse struct {
+	Data   *CurrencyQuoteMap `json:"data"`
+	Status Status            `json:"status"`
+}
+
+type CurrencyQuoteMap map[string]CurrencyQuote
+
+func (m CurrencyQuoteMap) CurrencyMap() (currency.CurrencyMap, error) {
+	if m == nil {
+		return nil, nil
+	}
+	res := make(currency.CurrencyMap, len(m))
+	var id uint64
+	var err error
+	var item *currency.Currency
+
+	for k, v := range m {
+		if id, err = strconv.ParseUint(k, 10, 64); err != nil {
+			return nil, err
+		}
+		item = v.Currency()
+		res[uint(id)] = *item
+	}
+
+	return res, nil
+}
+
+type CurrencyQuote struct {
+	ID                uint                   `json:"id"`
+	Symbol            string                 `json:"symbol"`
+	Slug              string                 `json:"slug"`
+	Name              string                 `json:"name"`
+	CirculatingSupply uint                   `json:"circulating_supply"`
+	TotalSupply       uint                   `json:"total_supply"`
+	MaxSupply         uint                   `json:"max_supply"`
+	LatestPrice       float64                `json:"id"`
+	CmcRank           uint                   `json:"cmc_rank"`
+	AddedAt           uint                   `json:"date_added"`
+	Platform          *QuoteCurrencyPlatform `json:"platform"`
+	Quote             Quote                  `json:"quote"`
+}
+
+type QuoteCurrencyPlatform struct {
+	ID           uint   `json:"id"`
+	Symbol       string `json:"symbol"`
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	TokenAddress string `json:"token_address"`
+}
+
+func (e *QuoteCurrencyPlatform) CurrencyPlatform() *currency.CurrencyPlatform {
+	if e == nil {
+		return nil
+	}
+	return &currency.CurrencyPlatform{
+		ID:           e.ID,
+		Symbol:       e.Symbol,
+		Slug:         e.Slug,
+		Name:         e.Name,
+		TokenAddress: e.TokenAddress,
+	}
+}
+
+type Quote struct {
+	USD QuoteUSD
+}
+type QuoteUSD struct {
+	Price float64
+}
+
+func (e *CurrencyQuote) Currency() *currency.Currency {
+	entity := currency.Currency{
+		ID:                e.ID,
+		Symbol:            e.Symbol,
+		Slug:              e.Slug,
+		Name:              e.Name,
+		IsForObserving:    true,
+		CirculatingSupply: e.CirculatingSupply,
+		TotalSupply:       e.TotalSupply,
+		MaxSupply:         e.MaxSupply,
+		LatestPrice:       0,
+		CmcRank:           e.CmcRank,
+		AddedAt:           e.AddedAt,
+		Platform:          e.Platform.CurrencyPlatform(),
+	}
+	return &entity
+}

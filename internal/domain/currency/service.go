@@ -113,7 +113,7 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 		if importMaxTimeItem.PriceAndCap, err = s.priceAndCap.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.PriceAndCap); err != nil {
 			return err
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(6 * time.Second)
 		if importMaxTimeItem.Concentration, err = s.concentration.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.Concentration); err != nil {
 			return err
 		}

@@ -11,11 +11,26 @@ type ImportMaxTime struct {
 }
 
 type Currency struct {
-	ID             uint
-	Symbol         string
-	Slug           string
-	Name           string
-	IsForObserving bool
+	ID                uint
+	Symbol            string
+	Slug              string
+	Name              string
+	IsForObserving    bool
+	CirculatingSupply uint
+	TotalSupply       uint
+	MaxSupply         uint
+	LatestPrice       float64
+	CmcRank           uint
+	AddedAt           uint
+	Platform          *CurrencyPlatform
+}
+
+type CurrencyPlatform struct {
+	ID           uint
+	Symbol       string
+	Slug         string
+	Name         string
+	TokenAddress string
 }
 
 func (e *Currency) Validate() error {
