@@ -8,6 +8,7 @@ import (
 	"info/internal/domain/currency"
 	"info/internal/domain/price_and_cap"
 	"info/internal/integration/cmc_api"
+	"info/internal/integration/cmc_pro_api"
 )
 
 type AppConfig struct {
@@ -23,8 +24,14 @@ type CmcApi interface {
 	GetCurrency(ctx context.Context, currencySlug string) (*currency.Currency, error)
 }
 
+type CmcProApi interface {
+	GetCurrenciesByIDs(ctx context.Context, currencyIDs *[]uint) (currencyMap currency.CurrencyMap, err error)
+	GetCurrenciesBySlugs(ctx context.Context, slugs *[]string) (currencyMap currency.CurrencyMap, err error)
+}
+
 type Integration struct {
-	CmcApi CmcApi
+	CmcApi    CmcApi
+	CmcProApi CmcProApi
 }
 
 func New(appConfig *AppConfig, cfg *Config, logger *zap.Logger) (*Integration, error) {
@@ -36,6 +43,14 @@ func New(appConfig *AppConfig, cfg *Config, logger *zap.Logger) (*Integration, e
 			Subsystem: appConfig.Subsystem,
 			Service:   appConfig.Service,
 		}, cfg.CmcApi, logger)
+	}
+
+	if cfg.CmcProApi != nil {
+		integration.CmcProApi = cmc_pro_api.New(&cmc_pro_api.AppConfig{
+			NameSpace: appConfig.NameSpace,
+			Subsystem: appConfig.Subsystem,
+			Service:   appConfig.Service,
+		}, cfg.CmcProApi, logger)
 	}
 
 	return integration, nil

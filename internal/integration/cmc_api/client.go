@@ -55,9 +55,9 @@ const (
 	AnalyticsRange_1Y  = "year1"
 	AnalyticsRange_All = "all"
 
-	URI_GetDetailChart string = "/data-api/v3/cryptocurrency/detail/chart"
-	URI_GetAnalytics   string = "/data-api/v3/cryptocurrency/info/get-analytics"
-	URI_GetCurrency    string = "/data-api/v3/cryptocurrency/market-pairs/latest"
+	URI_GetDetailChart    string = "/data-api/v3/cryptocurrency/detail/chart"
+	URI_GetAnalytics      string = "/data-api/v3/cryptocurrency/info/get-analytics"
+	URI_GetCurrencySimple string = "/data-api/v3/cryptocurrency/market-pairs/latest"
 )
 
 var ChartRangeList = []interface{}{
@@ -201,7 +201,7 @@ func (c *CmcApiClient) GetCurrency(ctx context.Context, currencySlug string) (*c
 	const funcName = "GetCurrency"
 	resp := &GetCurrencyResponse{}
 	requestId, options := c.getDefaultRequestOptions()
-	uri := URI_GetCurrency + "?start=1&limit=10&category=spot&slug=" + currencySlug
+	uri := URI_GetCurrencySimple + "?start=1&limit=10&category=spot&slug=" + currencySlug
 
 	data, code, err := c.httpClient.Get(ctx, uri, options...)
 	if err != nil {

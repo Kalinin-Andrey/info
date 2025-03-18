@@ -14,6 +14,7 @@ type WriteRepository interface {
 	Begin(ctx context.Context) (domain.Tx, error)
 	GetImportMaxTimeForUpdateTx(ctx context.Context, tx domain.Tx, currencyIDs *[]uint) (map[uint]ImportMaxTime, error)
 	Create(ctx context.Context, entity *Currency) (ID uint, err error)
+	MUpsert(ctx context.Context, entities *CurrencyList) error
 	Update(ctx context.Context, entity *Currency) error
 	Delete(ctx context.Context, ID uint) error
 	MCreateImportMaxTime(ctx context.Context, entities *[]ImportMaxTime) error

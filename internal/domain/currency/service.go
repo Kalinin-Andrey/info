@@ -22,19 +22,25 @@ type CmcApi interface {
 	GetCurrency(ctx context.Context, currencySlug string) (*Currency, error)
 }
 
+type CmcProApi interface {
+	GetCurrenciesBySlugs(ctx context.Context, slugs *[]string) (currencyMap CurrencyMap, err error)
+}
+
 type Service struct {
 	replicaSet    ReplicaSet
 	priceAndCap   *price_and_cap.Service
 	concentration *concentration.Service
 	cmcApi        CmcApi
+	cmcProApi     CmcProApi
 }
 
-func NewService(replicaSet ReplicaSet, priceAndCap *price_and_cap.Service, concentration *concentration.Service, cmcApi CmcApi) *Service {
+func NewService(replicaSet ReplicaSet, priceAndCap *price_and_cap.Service, concentration *concentration.Service, cmcApi CmcApi, cmcProApi CmcProApi) *Service {
 	return &Service{
 		replicaSet:    replicaSet,
 		priceAndCap:   priceAndCap,
 		concentration: concentration,
 		cmcApi:        cmcApi,
+		cmcProApi:     cmcProApi,
 	}
 }
 
@@ -126,15 +132,36 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 
 func (s *Service) baseImport(ctx context.Context, listOfCurrencySlugs *[]string) (currencyList *CurrencyList, err error) {
 	const metricName = "currency.Service.baseImport"
+	if listOfCurrencySlugs == nil || len(*listOfCurrencySlugs) == 0 {
+		return nil, nil
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Join(err, fmt.Errorf("[%w] "+metricName+" Recover from panic: %v; stacktrace from panic: %s", apperror.ErrInternal, r, string(debug.Stack())))
 		}
 	}()
 
+	currencyMap, err := s.cmcProApi.GetCurrenciesBySlugs(ctx, listOfCurrencySlugs)
+	if err != nil {
+		return nil, err
+	}
+	l := currencyMap.List()
+
+	return l, s.replicaSet.WriteRepo().MUpsert(ctx, l)
+}
+
+func (s *Service) baseSimpleImport(ctx context.Context, listOfCurrencySlugs *[]string) (currencyList *CurrencyList, err error) {
+	const metricName = "currency.Service.baseSimpleImport"
 	if listOfCurrencySlugs == nil || len(*listOfCurrencySlugs) == 0 {
 		return nil, nil
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Join(err, fmt.Errorf("[%w] "+metricName+" Recover from panic: %v; stacktrace from panic: %s", apperror.ErrInternal, r, string(debug.Stack())))
+		}
+	}()
 
 	exists, err := s.replicaSet.ReadRepo().MGetBySlug(ctx, listOfCurrencySlugs)
 	if err != nil {
@@ -160,7 +187,7 @@ func (s *Service) baseImport(ctx context.Context, listOfCurrencySlugs *[]string)
 	}
 
 	if len(notExistsSlugs) > 0 {
-		importedCurrencyList, err := s.baseImportBySlug(ctx, &notExistsSlugs)
+		importedCurrencyList, err := s.baseSimpleImportBySlug(ctx, &notExistsSlugs)
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +196,7 @@ func (s *Service) baseImport(ctx context.Context, listOfCurrencySlugs *[]string)
 	return exists, nil
 }
 
-func (s *Service) baseImportBySlug(ctx context.Context, listOfCurrencySlugs *[]string) (importedCurrencyList *CurrencyList, err error) {
+func (s *Service) baseSimpleImportBySlug(ctx context.Context, listOfCurrencySlugs *[]string) (importedCurrencyList *CurrencyList, err error) {
 	if listOfCurrencySlugs == nil || len(*listOfCurrencySlugs) == 0 {
 		return nil, nil
 	}

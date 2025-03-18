@@ -30,13 +30,15 @@ func NewCurrencyRepository(repository *Repository) *CurrencyRepository {
 }
 
 const (
-	currency_sql_Get                       = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE id = $1;"
-	currency_sql_GetBySlug                 = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE slug = $1;"
+	currency_sql_Get                       = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE id = $1;"
+	currency_sql_GetBySlug                 = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE slug = $1;"
 	currency_sql_GetImportMaxTimeForUpdate = "SELECT currency_id, price_and_cap, concentration FROM cmc.import_max_time WHERE currency_id = ANY($1) FOR UPDATE;"
-	currency_sql_MGet                      = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE id = any($1);"
-	currency_sql_MGetBySlug                = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE slug = any($1);"
-	currency_sql_GetAll                    = "SELECT id, symbol, slug, name, is_for_observing FROM cmc.currency WHERE is_for_observing = TRUE;"
+	currency_sql_MGet                      = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE id = any($1);"
+	currency_sql_MGetBySlug                = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE slug = any($1);"
+	currency_sql_GetAll                    = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE is_for_observing = TRUE;"
 	currency_sql_Create                    = "INSERT INTO cmc.currency(id, symbol, slug, name, is_for_observing) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id;"
+	currency_sql_MCreate                   = "INSERT INTO cmc.currency(id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform) VALUES "
+	currency_sql_Create_OnConflictDoUpdate = " ON CONFLICT (id) DO UPDATE SET symbol = EXCLUDED.symbol, slug = EXCLUDED.slug, name = EXCLUDED.name, is_for_observing = EXCLUDED.is_for_observing, circulating_supply = EXCLUDED.circulating_supply, self_reported_circulating_supply = EXCLUDED.self_reported_circulating_supply, total_supply = EXCLUDED.total_supply, max_supply = EXCLUDED.max_supply, latest_price = EXCLUDED.latest_price, cmc_rank = EXCLUDED.cmc_rank, date_added = EXCLUDED.date_added, platform = EXCLUDED.platform;"
 	currency_sql_Update                    = "UPDATE cmc.currency SET symbol = $2, slug = $3, name = $4, is_for_observing = $5 WHERE id = $1;"
 	currency_sql_Delete                    = "DELETE FROM cmc.currency WHERE id = $1;"
 
@@ -51,7 +53,7 @@ func (r *CurrencyRepository) Get(ctx context.Context, ID uint) (*currency.Curren
 	start := time.Now().UTC()
 
 	entity := &currency.Currency{}
-	if err := r.db.QueryRow(ctx, currency_sql_Get, ID).Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving); err != nil {
+	if err := r.db.QueryRow(ctx, currency_sql_Get, ID).Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving, &entity.CirculatingSupply, &entity.SelfReportedCirculatingSupply, &entity.TotalSupply, &entity.MaxSupply, &entity.LatestPrice, &entity.CmcRank, &entity.AddedAt, &entity.Platform); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -73,7 +75,7 @@ func (r *CurrencyRepository) GetBySlug(ctx context.Context, slug string) (*curre
 	start := time.Now().UTC()
 
 	entity := &currency.Currency{}
-	if err := r.db.QueryRow(ctx, currency_sql_GetBySlug, slug).Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving); err != nil {
+	if err := r.db.QueryRow(ctx, currency_sql_GetBySlug, slug).Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving, &entity.CirculatingSupply, &entity.SelfReportedCirculatingSupply, &entity.TotalSupply, &entity.MaxSupply, &entity.LatestPrice, &entity.CmcRank, &entity.AddedAt, &entity.Platform); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
 			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
@@ -151,7 +153,7 @@ func (r *CurrencyRepository) MGet(ctx context.Context, IDs *[]uint) (*currency.C
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving); err != nil {
+		if err = rows.Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving, &entity.CirculatingSupply, &entity.SelfReportedCirculatingSupply, &entity.TotalSupply, &entity.MaxSupply, &entity.LatestPrice, &entity.CmcRank, &entity.AddedAt, &entity.Platform); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
 			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_MGet, err)
@@ -191,7 +193,7 @@ func (r *CurrencyRepository) MGetBySlug(ctx context.Context, slugs *[]string) (*
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving); err != nil {
+		if err = rows.Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving, &entity.CirculatingSupply, &entity.SelfReportedCirculatingSupply, &entity.TotalSupply, &entity.MaxSupply, &entity.LatestPrice, &entity.CmcRank, &entity.AddedAt, &entity.Platform); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
 			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_MGetBySlug, err)
@@ -231,7 +233,7 @@ func (r *CurrencyRepository) GetAll(ctx context.Context) (*currency.CurrencyList
 	defer rows.Close()
 
 	for rows.Next() {
-		if err = rows.Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving); err != nil {
+		if err = rows.Scan(&entity.ID, &entity.Symbol, &entity.Slug, &entity.Name, &entity.IsForObserving, &entity.CirculatingSupply, &entity.SelfReportedCirculatingSupply, &entity.TotalSupply, &entity.MaxSupply, &entity.LatestPrice, &entity.CmcRank, &entity.AddedAt, &entity.Platform); err != nil {
 			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
 			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_GetAll, err)
@@ -251,7 +253,7 @@ func (r *CurrencyRepository) GetAll(ctx context.Context) (*currency.CurrencyList
 func (r *CurrencyRepository) Create(ctx context.Context, entity *currency.Currency) (ID uint, err error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	const metricName = "CurrencyRepository.Upsert"
+	const metricName = "CurrencyRepository.Create"
 	start := time.Now().UTC()
 
 	if err := r.db.QueryRow(ctx, currency_sql_Create, entity.ID, entity.Symbol, entity.Slug, entity.Name, entity.IsForObserving).Scan(&ID); err != nil {
@@ -376,6 +378,38 @@ func (r CurrencyRepository) MUpsertImportMaxTimeTx(ctx context.Context, tx domai
 	start := time.Now().UTC()
 
 	_, err := tx.Exec(ctx, b.String(), params...)
+	if err != nil {
+		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
+		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
+		return fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, b.String(), err)
+	}
+	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
+	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
+	return nil
+}
+
+func (r CurrencyRepository) MUpsert(ctx context.Context, entities *currency.CurrencyList) error {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+	const metricName = "WarehouseRepository.MUpsert"
+	const fields_nb = 13
+	if len(*entities) == 0 {
+		return nil
+	}
+	b := strings.Builder{}
+	params := make([]interface{}, 0, len(*entities)*fields_nb)
+	b.WriteString(currency_sql_MCreate)
+	for i, entity := range *entities {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString("($" + strconv.Itoa(i*fields_nb+1) + ", $" + strconv.Itoa(i*fields_nb+2) + ", $" + strconv.Itoa(i*fields_nb+3) + ", $" + strconv.Itoa(i*fields_nb+4) + ", $" + strconv.Itoa(i*fields_nb+5) + ", $" + strconv.Itoa(i*fields_nb+6) + ", $" + strconv.Itoa(i*fields_nb+7) + ", $" + strconv.Itoa(i*fields_nb+8) + ", $" + strconv.Itoa(i*fields_nb+9) + ", $" + strconv.Itoa(i*fields_nb+10) + ", $" + strconv.Itoa(i*fields_nb+11) + ", $" + strconv.Itoa(i*fields_nb+12) + ", $" + strconv.Itoa(i*fields_nb+13) + ")")
+		params = append(params, entity.ID, entity.Symbol, entity.Slug, entity.Name, entity.IsForObserving, entity.CirculatingSupply, entity.SelfReportedCirculatingSupply, entity.TotalSupply, entity.MaxSupply, entity.LatestPrice, entity.CmcRank, entity.AddedAt, entity.Platform)
+	}
+	b.WriteString(currency_sql_Create_OnConflictDoUpdate)
+	start := time.Now().UTC()
+
+	_, err := r.db.Exec(ctx, b.String(), params...)
 	if err != nil {
 		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
 		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)

@@ -1,4 +1,4 @@
-package cmc_api
+package cmc_pro_api
 
 import (
 	"info/internal/domain/concentration"
@@ -11,9 +11,9 @@ import (
 
 type Status struct {
 	Timestamp    string `json:"timestamp"`
-	ErrorCode    string `json:"error_code"`
+	ErrorCode    int    `json:"error_code"`
 	ErrorMessage string `json:"error_message"`
-	Elapsed      string `json:"elapsed"`
+	Elapsed      int    `json:"elapsed"`
 	CreditCount  uint   `json:"credit_count"`
 }
 
@@ -154,4 +154,92 @@ func (e *HistoricalConcentration) ConcentrationList(currencyID uint) (*concentra
 		})
 	}
 	return &res, nil
+}
+
+type CurrencyQuotesResponse struct {
+	Data   CurrencyQuoteMap `json:"data"`
+	Status Status           `json:"status"`
+}
+
+type CurrencyQuoteMap map[string]CurrencyQuote
+
+func (m CurrencyQuoteMap) CurrencyMap() (currency.CurrencyMap, error) {
+	if m == nil {
+		return nil, nil
+	}
+	res := make(currency.CurrencyMap, len(m))
+	var id uint64
+	var err error
+	var item *currency.Currency
+
+	for k, v := range m {
+		if id, err = strconv.ParseUint(k, 10, 64); err != nil {
+			return nil, err
+		}
+		item = v.Currency()
+		res[uint(id)] = *item
+	}
+
+	return res, nil
+}
+
+type CurrencyQuote struct {
+	ID                            uint                   `json:"id"`
+	Symbol                        string                 `json:"symbol"`
+	Slug                          string                 `json:"slug"`
+	Name                          string                 `json:"name"`
+	CirculatingSupply             float64                `json:"circulating_supply"`
+	SelfReportedCirculatingSupply float64                `json:"self_reported_circulating_supply"`
+	TotalSupply                   float64                `json:"total_supply"`
+	MaxSupply                     *float64               `json:"max_supply"`
+	CmcRank                       uint                   `json:"cmc_rank"`
+	AddedAt                       time.Time              `json:"date_added"`
+	Platform                      *QuoteCurrencyPlatform `json:"platform"`
+	Quote                         Quote                  `json:"quote"`
+}
+
+type QuoteCurrencyPlatform struct {
+	ID           uint   `json:"id"`
+	Symbol       string `json:"symbol"`
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	TokenAddress string `json:"token_address"`
+}
+
+func (e *QuoteCurrencyPlatform) CurrencyPlatform() *currency.CurrencyPlatform {
+	if e == nil {
+		return nil
+	}
+	return &currency.CurrencyPlatform{
+		ID:           e.ID,
+		Symbol:       e.Symbol,
+		Slug:         e.Slug,
+		Name:         e.Name,
+		TokenAddress: e.TokenAddress,
+	}
+}
+
+type Quote struct {
+	USD QuoteUSD
+}
+type QuoteUSD struct {
+	Price float64
+}
+
+func (e *CurrencyQuote) Currency() *currency.Currency {
+	return &currency.Currency{
+		ID:                            e.ID,
+		Symbol:                        e.Symbol,
+		Slug:                          e.Slug,
+		Name:                          e.Name,
+		IsForObserving:                true,
+		CirculatingSupply:             e.CirculatingSupply,
+		SelfReportedCirculatingSupply: e.SelfReportedCirculatingSupply,
+		TotalSupply:                   e.TotalSupply,
+		MaxSupply:                     e.MaxSupply,
+		LatestPrice:                   e.Quote.USD.Price,
+		CmcRank:                       e.CmcRank,
+		AddedAt:                       e.AddedAt,
+		Platform:                      e.Platform.CurrencyPlatform(),
+	}
 }

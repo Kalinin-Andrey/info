@@ -65,7 +65,7 @@ func (app *App) SetupServices() {
 		PriceAndCap:   price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
 		Concentration: concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
 	}
-	app.Domain.Currency = currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB), app.Domain.PriceAndCap, app.Domain.Concentration, app.Integration.CmcApi)
+	app.Domain.Currency = currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB), app.Domain.PriceAndCap, app.Domain.Concentration, app.Integration.CmcApi, app.Integration.CmcProApi)
 }
 
 func (app *App) Run() error {
