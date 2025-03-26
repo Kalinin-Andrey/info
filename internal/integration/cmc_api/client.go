@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"info/internal/domain/concentration"
 	"info/internal/domain/currency"
+	"info/internal/domain/portfolio_item"
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"info/internal/pkg/log_key"
@@ -30,6 +31,7 @@ type AppConfig struct {
 
 type Config struct {
 	Httpconfig httpclient.Config
+	Cookie     string
 }
 
 type CmcApiClient struct {
@@ -42,6 +44,7 @@ const (
 	Name                  = "CmcApiClient"
 	ContentType           = "application/json; charset=utf-8"
 	HeaderParam_RequestId = "X-Request-Id"
+	HeaderParam_Cookie    = "Cookie"
 
 	ErrorMessage_Success = "SUCCESS"
 
@@ -55,9 +58,10 @@ const (
 	AnalyticsRange_1Y  = "year1"
 	AnalyticsRange_All = "all"
 
-	URI_GetDetailChart    string = "/data-api/v3/cryptocurrency/detail/chart"
-	URI_GetAnalytics      string = "/data-api/v3/cryptocurrency/info/get-analytics"
-	URI_GetCurrencySimple string = "/data-api/v3/cryptocurrency/market-pairs/latest"
+	URI_GetDetailChart      string = "/data-api/v3/cryptocurrency/detail/chart"
+	URI_GetAnalytics        string = "/data-api/v3/cryptocurrency/info/get-analytics"
+	URI_GetCurrencySimple   string = "/data-api/v3/cryptocurrency/market-pairs/latest"
+	URI_GetPortfolioSummary string = "/asset/v3/portfolio/query-summary"
 )
 
 var ChartRangeList = []interface{}{
@@ -109,6 +113,11 @@ func (c *CmcApiClient) getDefaultRequestOptions() (requestId string, options []h
 		httpclient.WithContentType(ContentType),
 		httpclient.WithHeader(HeaderParam_RequestId, requestId),
 	}
+}
+
+func (c *CmcApiClient) getRequestOptionsWithCookie() (requestId string, options []httpclient.RequestOption) {
+	requestId, options = c.getDefaultRequestOptions()
+	return requestId, append(options, httpclient.WithHeader(HeaderParam_Cookie, c.config.Cookie))
 }
 
 func (c *CmcApiClient) GetDetailChart(ctx context.Context, currencyID uint, tRange string) (*price_and_cap.PriceAndCapList, error) {
@@ -227,4 +236,49 @@ func (c *CmcApiClient) GetCurrency(ctx context.Context, currencySlug string) (*c
 	res := resp.Data.Currency()
 
 	return res, nil
+}
+
+func (c *CmcApiClient) getPortfolioSummaryRequest(portfolioSourceId string) *GetPortfolioSummaryRequest {
+	return &GetPortfolioSummaryRequest{
+		PortfolioSourceId: portfolioSourceId,
+		PortfolioType:     "manual",
+		CryptoUnit:        2781,
+		CurrentPage:       1,
+		PageSize:          1000,
+	}
+}
+
+func (c *CmcApiClient) GetPortfolioSummary(ctx context.Context, portfolioSourceId string) (*portfolio_item.PortfolioItemList, error) {
+	var err error
+	const funcName = "GetPortfolioSummary"
+	resp := &GetPortfolioSummaryResponse{}
+	requestId, options := c.getRequestOptionsWithCookie()
+	uri := URI_GetPortfolioSummary
+
+	data, code, err := c.httpClient.Post(ctx, uri, c.getPortfolioSummaryRequest(portfolioSourceId), options...)
+	if err != nil {
+		c.logger.Error("httpClient.Get error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.Error(err))
+		return nil, fmt.Errorf(Name+"."+funcName+" [%w] http error: %s; requestId: %s; uri: %s", apperror.ErrInternal, err.Error(), requestId, uri)
+	}
+	if code != 200 {
+		c.logger.Error("httpClient.Get error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.Error(err), zap.Int(log_key.Code, code))
+		return nil, fmt.Errorf(funcName+" [%w] http response error code: "+strconv.Itoa(code)+"; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, requestId, uri, string(data))
+	}
+
+	if err = json.Unmarshal(data, resp); err != nil {
+		c.logger.Error("json.Unmarshal error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.Error(err))
+		return nil, fmt.Errorf(funcName+" [%w] json.Unmarshal error: %s; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, err.Error(), requestId, uri, string(data))
+	}
+
+	if resp.Status.ErrorCode != "0" || resp.Status.ErrorMessage != ErrorMessage_Success {
+		c.logger.Error("response with error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.String(log_key.ErrorCode, resp.Status.ErrorCode), zap.String(log_key.ErrorMessage, resp.Status.ErrorMessage))
+		return nil, fmt.Errorf(funcName+" [%w] response with error; code: "+resp.Status.ErrorCode+"; error message: "+resp.Status.ErrorMessage+"; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, requestId, uri, string(data))
+	}
+
+	if resp.Data == nil || len(resp.Data.ManualSummary) == 0 {
+		c.logger.Error("response with empty data", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName))
+		return nil, fmt.Errorf(funcName+" [%w] response with empty data; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, requestId, uri, string(data))
+	}
+
+	return resp.Data.ManualSummary[0].List.SetPortfolioSourceId(portfolioSourceId).PortfolioItemList(), nil
 }

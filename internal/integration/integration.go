@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"info/internal/domain/concentration"
 	"info/internal/domain/currency"
+	"info/internal/domain/portfolio_item"
 	"info/internal/domain/price_and_cap"
 	"info/internal/integration/cmc_api"
 	"info/internal/integration/cmc_pro_api"
@@ -22,6 +23,7 @@ type CmcApi interface {
 	GetDetailChart(ctx context.Context, CurrencyID uint, Range string) (*price_and_cap.PriceAndCapList, error)
 	GetAnalytics(ctx context.Context, CurrencyID uint, Range string) (*concentration.ConcentrationList, error)
 	GetCurrency(ctx context.Context, currencySlug string) (*currency.Currency, error)
+	GetPortfolioSummary(ctx context.Context, portfolioSourceId string) (*portfolio_item.PortfolioItemList, error)
 }
 
 type CmcProApi interface {

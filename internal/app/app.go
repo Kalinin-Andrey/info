@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"info/internal/domain/concentration"
+	"info/internal/domain/portfolio_item"
 	"info/internal/domain/price_and_cap"
 	"info/internal/integration"
 	"info/internal/pkg/config"
@@ -25,6 +26,7 @@ type Domain struct {
 	Currency      *currency.Service
 	PriceAndCap   *price_and_cap.Service
 	Concentration *concentration.Service
+	PortfolioItem *portfolio_item.Service
 }
 
 // New func is a constructor for the App
@@ -64,6 +66,7 @@ func (app *App) SetupServices() {
 	app.Domain = &Domain{
 		PriceAndCap:   price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
 		Concentration: concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
+		PortfolioItem: portfolio_item.NewService(tsdb_cluster.NewPortfolioItemReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
 	}
 	app.Domain.Currency = currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB), app.Domain.PriceAndCap, app.Domain.Concentration, app.Integration.CmcApi, app.Integration.CmcProApi)
 }

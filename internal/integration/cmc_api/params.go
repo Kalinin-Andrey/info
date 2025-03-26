@@ -3,6 +3,7 @@ package cmc_api
 import (
 	"info/internal/domain/concentration"
 	"info/internal/domain/currency"
+	"info/internal/domain/portfolio_item"
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"strconv"
@@ -154,4 +155,84 @@ func (e *HistoricalConcentration) ConcentrationList(currencyID uint) (*concentra
 		})
 	}
 	return &res, nil
+}
+
+type GetPortfolioSummaryRequest struct {
+	PortfolioSourceId string `json:"portfolioSourceId"`
+	PortfolioType     string `json:"portfolioType"`
+	CryptoUnit        uint   `json:"cryptoUnit"`
+	CurrentPage       uint   `json:"currentPage"`
+	PageSize          uint   `json:"pageSize"`
+}
+
+type GetPortfolioSummaryResponse struct {
+	Data   *PortfolioSummary `json:"data"`
+	Status Status            `json:"status"`
+}
+
+type PortfolioSummary struct {
+	PortfolioType string             `json:"portfolioType"`
+	ManualSummary []PortfolioContent `json:"manualSummary"`
+}
+
+type PortfolioContent struct {
+	CurrentPage uint              `json:"currentPage"`
+	List        PortfolioItemList `json:"list"`
+}
+
+type PortfolioItemList []PortfolioItem
+
+func (l *PortfolioItemList) PortfolioItemList() *portfolio_item.PortfolioItemList {
+	if l == nil || len(*l) == 0 {
+		return nil
+	}
+	res := make(portfolio_item.PortfolioItemList, 0, len(*l))
+	var item PortfolioItem
+	var resItem *portfolio_item.PortfolioItem
+
+	for _, item = range *l {
+		resItem = item.PortfolioItem()
+		res = append(res, *resItem)
+	}
+
+	return &res
+}
+
+func (l *PortfolioItemList) SetPortfolioSourceId(portfolioSourceId string) *PortfolioItemList {
+	if l == nil || len(*l) == 0 {
+		return nil
+	}
+	var i int
+	for i = range *l {
+		(*l)[i].PortfolioSourceID = portfolioSourceId
+	}
+	return l
+}
+
+type PortfolioItem struct {
+	PortfolioSourceID string    `json:"portfolioSourceId"`
+	CurrencyID        uint      `json:"cryptocurrencyId"`
+	Amount            float64   `json:"amount"`
+	CurrentPrice      float64   `json:"currentPrice"`
+	CryptoHoldings    float64   `json:"cryptoHoldings"`
+	HoldingsPercent   float64   `json:"holdingsPercent"`
+	BuyAvgPrice       float64   `json:"buyAvgPrice"`
+	PlPercentValue    float64   `json:"plPercentValue"`
+	PlValue           float64   `json:"plValue"`
+	UpdatedAt         time.Time `json:"lastUpdated"`
+}
+
+func (e *PortfolioItem) PortfolioItem() *portfolio_item.PortfolioItem {
+	return &portfolio_item.PortfolioItem{
+		PortfolioSourceID: e.PortfolioSourceID,
+		CurrencyID:        e.CurrencyID,
+		Amount:            e.Amount,
+		CurrentPrice:      e.CurrentPrice,
+		CryptoHoldings:    e.CryptoHoldings,
+		HoldingsPercent:   e.HoldingsPercent,
+		BuyAvgPrice:       e.BuyAvgPrice,
+		PlPercentValue:    e.PlPercentValue,
+		PlValue:           e.PlValue,
+		UpdatedAt:         e.UpdatedAt,
+	}
 }

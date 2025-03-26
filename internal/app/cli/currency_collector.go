@@ -47,4 +47,12 @@ func (app *App) currencyCollector_Exec(ctx context.Context, cfg *config.Currency
 		return
 	}
 	app.Infra.Logger.Info("Currency.Import: iteration completed successfully!")
+
+	app.Infra.Logger.Info("Portfolio.Import: starts iteration...")
+
+	if err := app.Domain.PortfolioItem.Import(ctx, &cfg.PortfolioSourceIDs); err != nil {
+		app.Infra.Logger.Info("PortfolioItem.Import: iteration completed with errors!", zap.Error(err))
+		return
+	}
+	app.Infra.Logger.Info("Portfolio.Import: iteration completed successfully!")
 }

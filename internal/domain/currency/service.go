@@ -115,11 +115,11 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 			}
 		}
 		fmt.Printf("%d. %s\n", i, currency.Symbol)
-		time.Sleep(5 * time.Second)
+		time.Sleep(6 * time.Second)
 		if importMaxTimeItem.PriceAndCap, err = s.priceAndCap.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.PriceAndCap); err != nil {
 			return err
 		}
-		time.Sleep(6 * time.Second)
+		time.Sleep(7 * time.Second)
 		if importMaxTimeItem.Concentration, err = s.concentration.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.Concentration); err != nil {
 			return err
 		}

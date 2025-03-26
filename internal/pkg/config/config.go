@@ -64,6 +64,7 @@ type CliConfig struct {
 
 type CurrencyCollector struct {
 	Duration            time.Duration
+	PortfolioSourceIDs  []string
 	ListOfCurrencySlugs []string
 }
 
@@ -101,6 +102,32 @@ func Get() (*Configuration, error) {
 	if err := config.readMSConfig(pathToMSConfig); err != nil {
 		return &config, err
 	}
+
+	// Всё, что ниже в этой функции, должно автоматом подхватываться, но почему-то на кубере не сработало. Пока придётся в рукопашную.
+	var ok bool
+	var st, varName string
+	var val interface{}
+
+	if config.Integration.CmcApi != nil {
+		varName = "INTEGRATION_CMCAPI_COOKIE"
+		val = viper.Get(varName)
+		if st, ok = val.(string); !ok {
+			return nil, fmt.Errorf("Can not convert "+varName+" = %v to string.", val)
+		} else {
+			config.Integration.CmcApi.Cookie = st
+		}
+	}
+
+	if config.Integration.CmcProApi != nil {
+		varName = "INTEGRATION_CMCPROAPI_TOKEN"
+		val = viper.Get(varName)
+		if st, ok = val.(string); !ok {
+			return nil, fmt.Errorf("Can not convert "+varName+" = %v to string.", val)
+		} else {
+			config.Integration.CmcProApi.Token = st
+		}
+	}
+
 	return &config, nil
 }
 
