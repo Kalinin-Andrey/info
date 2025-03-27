@@ -532,4 +532,15 @@ FROM
 WHERE c.is_for_observing = true AND conc.whales IS NOT Null AND conc.whales > 0 AND conc.d <= (now() - interval '2 day')::date AND $__timeFilter(conc.d)
 GROUP BY text, time, w
 ORDER BY time;
+
+Сводная таблица
+SELECT c.symbol, w.whales_prc, ((GREATEST(c.circulating_supply, c.self_reported_circulating_supply) * c.latest_price)/1000000)::integer AS cap, ((coalesce(c.max_supply, c.total_supply) * c.latest_price)/1000000)::integer AS fdv, w.to_ath, w.from_atl, d.bonus, round(cast(coalesce(pit.crypto_holdings, 0) AS numeric), 2) AS crypto_holdings, round(cast(coalesce(pit.pl_percent_value, 0) AS numeric), 2) AS pl_percent_value
+FROM
+	currency AS c
+	LEFT JOIN whales_prc_and_min_max_price AS w ON c.id = w.id
+	LEFT JOIN cm1 AS d ON c.id = d.id
+	LEFT JOIN portfolio_item AS pit ON pit.portfolio_source_id = '6651f947db928013879d191c' AND c.id = pit.currency_id
+WHERE c.is_for_observing = true
+ORDER BY c.cmc_rank;
+
 */
