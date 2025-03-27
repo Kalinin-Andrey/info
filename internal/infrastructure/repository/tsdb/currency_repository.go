@@ -497,4 +497,39 @@ inner join cmc.concentration cw2 on w2.currency_id = cw2.currency_id and w2.d = 
 inner join cmc.concentration cw1 on w1.currency_id = cw1.currency_id and w1.d = cw1.d
 inner join cmc.concentration cn on n.currency_id = cn.currency_id and n.d = cn.d
 order by month2, month1, week2, week1;
+
+Запросы для графиков
+
+Изменения доли китов
+WITH val AS (
+	SELECT c.currency_id, c.d, c.whales
+	FROM
+		cmc.concentration AS c
+		INNER JOIN (
+			SELECT currency_id, max(d) AS d
+			FROM cmc.concentration
+			WHERE d <= (now() - interval '$period')::date
+			GROUP BY currency_id
+		) AS dt ON c.currency_id = dt.currency_id AND c.d = dt.d
+)
+SELECT v.d AS time, c.symbol AS text, Round(Cast(((v.whales - val.whales) * 100)/val.whales AS numeric), 4) AS w
+FROM
+	cmc.currency c
+	INNER JOIN val ON c.id = val.currency_id
+	INNER JOIN cmc.concentration v ON v.currency_id = val.currency_id AND v.d >= val.d AND v.d <= (now() - interval '2 day')::date
+WHERE c.is_for_observing = true
+GROUP BY text, time, w
+ORDER BY time;
+
+Доля китов
+SELECT
+  $__timeGroup(conc.d,'1d',previous),
+  c.symbol as text,
+  (conc.whales * 100)/(conc.whales + conc.investors + conc.retail) as w
+FROM
+  cmc.concentration AS conc
+  INNER JOIN cmc.currency AS c ON c.id = conc.currency_id
+WHERE c.is_for_observing = true AND conc.whales IS NOT Null AND conc.whales > 0 AND conc.d <= (now() - interval '2 day')::date AND $__timeFilter(conc.d)
+GROUP BY text, time, w
+ORDER BY time;
 */
