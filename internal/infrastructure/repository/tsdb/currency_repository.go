@@ -533,6 +533,41 @@ WHERE c.is_for_observing = true AND conc.whales IS NOT Null AND conc.whales > 0 
 GROUP BY text, time, w
 ORDER BY time;
 
+Изменения дневного объёма
+WITH val AS (
+	SELECT c.currency_id, c.ts, c.daily_volume
+	FROM
+		cmc.price_and_cap AS c
+		INNER JOIN (
+			SELECT currency_id, max(ts) AS ts
+			FROM cmc.price_and_cap
+			WHERE ts <= (now() - interval '$period')::date
+			GROUP BY currency_id
+		) AS dt ON c.currency_id = dt.currency_id AND c.ts = dt.ts
+)
+SELECT v.ts AS time, c.symbol AS text, Round(Cast(((v.daily_volume - val.daily_volume) * 100)/val.daily_volume AS numeric), 4) AS w
+FROM
+	cmc.currency c
+	INNER JOIN val ON c.id = val.currency_id
+	INNER JOIN cmc.price_and_cap v ON v.currency_id = val.currency_id AND v.ts >= val.ts AND v.ts <= (now() - interval '2 day')::date
+WHERE c.is_for_observing = true
+GROUP BY text, time, w
+ORDER BY time;
+
+Дневной объём торгов
+SELECT
+  $__timeGroup(cap.ts,'1d',previous),
+  c.symbol as text,
+  cap.daily_volume as w
+FROM
+  cmc.price_and_cap AS cap
+  INNER JOIN cmc.currency AS c ON c.id = cap.currency_id
+WHERE c.is_for_observing = true AND cap.daily_volume IS NOT Null AND cap.daily_volume > 0 AND cap.ts <= (now() - interval '2 day')::date AND $__timeFilter(cap.ts)
+GROUP BY text, time, w
+ORDER BY time;
+
+
+
 Сводная таблица
 SELECT c.symbol, w.whales_prc, ((GREATEST(c.circulating_supply, c.self_reported_circulating_supply) * c.latest_price)/1000000)::integer AS cap, ((coalesce(c.max_supply, c.total_supply) * c.latest_price)/1000000)::integer AS fdv, w.to_ath, w.from_atl, d.bonus, round(cast(coalesce(pit.crypto_holdings, 0) AS numeric), 2) AS crypto_holdings, round(cast(coalesce(pit.pl_percent_value, 0) AS numeric), 2) AS pl_percent_value
 FROM
