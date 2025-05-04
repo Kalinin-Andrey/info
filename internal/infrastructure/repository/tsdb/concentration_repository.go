@@ -103,7 +103,7 @@ func (r *ConcentrationRepository) Upsert(ctx context.Context, entity *concentrat
 	return nil
 }
 
-func (r ConcentrationRepository) MUpsertTx(ctx context.Context, tx domain.Tx, entities *[]concentration.Concentration) error {
+func (r *ConcentrationRepository) MUpsertTx(ctx context.Context, tx domain.Tx, entities *[]concentration.Concentration) error {
 	if len(*entities) <= MUpsertConcentration_Limit {
 		return r.mUpsertTx(ctx, tx, entities)
 	}
@@ -124,7 +124,7 @@ func (r ConcentrationRepository) MUpsertTx(ctx context.Context, tx domain.Tx, en
 	return nil
 }
 
-func (r ConcentrationRepository) mUpsertTx(ctx context.Context, tx domain.Tx, entities *[]concentration.Concentration) error {
+func (r *ConcentrationRepository) mUpsertTx(ctx context.Context, tx domain.Tx, entities *[]concentration.Concentration) error {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	const metricName = "ConcentrationRepository.mUpsertTx"

@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"info/internal/domain/concentration"
+	"info/internal/domain/oracul_analytics"
+	"info/internal/domain/oracul_daily_balance_stats"
+	"info/internal/domain/oracul_holder_stats"
+	"info/internal/domain/oracul_speedometers"
 	"info/internal/domain/portfolio_item"
 	"info/internal/domain/price_and_cap"
 	"info/internal/integration"
@@ -23,10 +27,14 @@ type App struct {
 }
 
 type Domain struct {
-	Currency      *currency.Service
-	PriceAndCap   *price_and_cap.Service
-	Concentration *concentration.Service
-	PortfolioItem *portfolio_item.Service
+	Currency                *currency.Service
+	PriceAndCap             *price_and_cap.Service
+	Concentration           *concentration.Service
+	PortfolioItem           *portfolio_item.Service
+	OraculAnalytics         *oracul_analytics.Service
+	OraculDailyBalanceStats *oracul_daily_balance_stats.Service
+	OraculHolderStats       *oracul_holder_stats.Service
+	OraculSpeedometers      *oracul_speedometers.Service
 }
 
 // New func is a constructor for the App
@@ -64,10 +72,14 @@ func New(ctx context.Context, cfg *config.Configuration) *App {
 
 func (app *App) SetupServices() {
 	app.Domain = &Domain{
-		PriceAndCap:   price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
-		Concentration: concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
-		PortfolioItem: portfolio_item.NewService(tsdb_cluster.NewPortfolioItemReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
+		PriceAndCap:             price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
+		Concentration:           concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
+		PortfolioItem:           portfolio_item.NewService(tsdb_cluster.NewPortfolioItemReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
+		OraculDailyBalanceStats: oracul_daily_balance_stats.NewService(tsdb_cluster.NewOraculDailyBalanceStatsReplicaSet(app.Infra.TsDB)),
+		OraculHolderStats:       oracul_holder_stats.NewService(tsdb_cluster.NewOraculHolderStatsReplicaSet(app.Infra.TsDB)),
+		OraculSpeedometers:      oracul_speedometers.NewService(tsdb_cluster.NewOraculSpeedometersReplicaSet(app.Infra.TsDB)),
 	}
+	app.Domain.OraculAnalytics = oracul_analytics.NewService(tsdb_cluster.NewOraculAnalyticsReplicaSet(app.Infra.TsDB), app.Domain.OraculSpeedometers, app.Domain.OraculHolderStats, app.Domain.OraculDailyBalanceStats)
 	app.Domain.Currency = currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB), app.Domain.PriceAndCap, app.Domain.Concentration, app.Integration.CmcApi, app.Integration.CmcProApi)
 }
 

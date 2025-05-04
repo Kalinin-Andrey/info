@@ -11,6 +11,13 @@ type OraculAnalyticsAPIClient interface {
 	Import(ctx context.Context) (oraculAnalytics *OraculAnalytics, oraculSpeedometers *oracul_speedometers.OraculSpeedometers, oraculHolderStats *oracul_holder_stats.OraculHolderStats, oraculDailyBalanceStatsList *oracul_daily_balance_stats.OraculDailyBalanceStatsList)
 }
 
+type ImportData struct {
+	OraculAnalytics             *OraculAnalytics
+	OraculSpeedometers          *oracul_speedometers.OraculSpeedometers
+	OraculHolderStats           *oracul_holder_stats.OraculHolderStats
+	OraculDailyBalanceStatsList *oracul_daily_balance_stats.OraculDailyBalanceStatsList
+}
+
 type Service struct {
 	replicaSet              ReplicaSet
 	oraculSpeedometers      *oracul_speedometers.Service

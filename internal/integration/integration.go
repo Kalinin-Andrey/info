@@ -1,13 +1,8 @@
 package integration
 
 import (
-	"context"
 	"errors"
 	"go.uber.org/zap"
-	"info/internal/domain/concentration"
-	"info/internal/domain/currency"
-	"info/internal/domain/portfolio_item"
-	"info/internal/domain/price_and_cap"
 	"info/internal/integration/cmc_api"
 	"info/internal/integration/cmc_pro_api"
 )
@@ -19,21 +14,9 @@ type AppConfig struct {
 	Environment string
 }
 
-type CmcApi interface {
-	GetDetailChart(ctx context.Context, CurrencyID uint, Range string) (*price_and_cap.PriceAndCapList, error)
-	GetAnalytics(ctx context.Context, CurrencyID uint, Range string) (*concentration.ConcentrationList, error)
-	GetCurrency(ctx context.Context, currencySlug string) (*currency.Currency, error)
-	GetPortfolioSummary(ctx context.Context, portfolioSourceId string) (*portfolio_item.PortfolioItemList, error)
-}
-
-type CmcProApi interface {
-	GetCurrenciesByIDs(ctx context.Context, currencyIDs *[]uint) (currencyMap currency.CurrencyMap, err error)
-	GetCurrenciesBySlugs(ctx context.Context, slugs *[]string) (currencyMap currency.CurrencyMap, err error)
-}
-
 type Integration struct {
-	CmcApi    CmcApi
-	CmcProApi CmcProApi
+	CmcApi    *cmc_api.CmcApiClient
+	CmcProApi *cmc_pro_api.CmcApiClient
 }
 
 func New(appConfig *AppConfig, cfg *Config, logger *zap.Logger) (*Integration, error) {
