@@ -8,7 +8,7 @@ import (
 )
 
 type OraculAnalyticsAPIClient interface {
-	Import(ctx context.Context) (oraculAnalytics *OraculAnalytics, oraculSpeedometers *oracul_speedometers.OraculSpeedometers, oraculHolderStats *oracul_holder_stats.OraculHolderStats, oraculDailyBalanceStatsList *oracul_daily_balance_stats.OraculDailyBalanceStatsList)
+	GetHoldersStats(ctx context.Context, currencyID uint, blockchain string, coinAddress string) (*ImportData, error)
 }
 
 type ImportData struct {

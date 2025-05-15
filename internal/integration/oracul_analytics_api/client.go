@@ -12,6 +12,7 @@ import (
 	"info/internal/pkg/apperror"
 	"info/internal/pkg/log_key"
 	"strconv"
+	"time"
 )
 
 type httpClient interface {
@@ -44,6 +45,8 @@ const (
 	URI_GetHoldersStats string = "/api/holders_stats"
 )
 
+var _ oracul_analytics.OraculAnalyticsAPIClient = (*OraculAnalyticsAPIClient)(nil)
+
 func New(appConfig *AppConfig, conf *Config, logger *zap.Logger) *OraculAnalyticsAPIClient {
 	client := httpclient.New(conf.Httpconfig, prometheus_utils.NewHttpClientMetrics(appConfig.NameSpace, appConfig.Subsystem, appConfig.Service, conf.Httpconfig.Name).SetCuttingPathOpts(&prometheus_utils.CuttingPathOpts{IsNeedToRemoveQueryInPath: true}))
 	return &OraculAnalyticsAPIClient{
@@ -61,15 +64,17 @@ func (c *OraculAnalyticsAPIClient) getDefaultRequestOptions() (requestId string,
 	}
 }
 
-func (c *OraculAnalyticsAPIClient) GetHoldersStats(ctx context.Context, blockchain string, coinAddress string) (*oracul_analytics.ImportData, error) {
+func (c *OraculAnalyticsAPIClient) GetHoldersStats(ctx context.Context, currencyID uint, blockchain string, coinAddress string) (*oracul_analytics.ImportData, error) {
 	if blockchain == "" || coinAddress == "" {
 		return nil, apperror.ErrNotFound
 	}
 
 	const funcName = "GetHoldersStats"
-	resp := &DetailChartResponse{}
+	resp := &GetHoldersStatsResponse{}
 	requestId, options := c.getDefaultRequestOptions()
-	uri := URI_GetDetailChart + "?id=" + strconv.FormatUint(uint64(currencyID), 10) + "&range=" + tRange
+
+	ts := time.Now().UTC()
+	uri := URI_GetHoldersStats + "?coin_address=" + coinAddress + "&blockchain=" + blockchain + "&start_at=" + ts.Add(-1*time.Hour*24*365).Format(time.DateOnly) + "&end_at=" + ts.Format(time.DateOnly) + "&total_candles=27"
 
 	data, code, err := c.httpClient.Get(ctx, uri, options...)
 	if err != nil {
@@ -86,13 +91,7 @@ func (c *OraculAnalyticsAPIClient) GetHoldersStats(ctx context.Context, blockcha
 		return nil, fmt.Errorf(funcName+" [%w] json.Unmarshal error: %s; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, err.Error(), requestId, uri, string(data))
 	}
 
-	if resp.Status.ErrorCode != "0" || resp.Status.ErrorMessage != ErrorMessage_Success {
-		c.logger.Error("response with error", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.String(log_key.ErrorCode, resp.Status.ErrorCode), zap.String(log_key.ErrorMessage, resp.Status.ErrorMessage))
-		return nil, fmt.Errorf(funcName+" [%w] response with error; code: "+resp.Status.ErrorCode+"; error message: "+resp.Status.ErrorMessage+"; requestId: %s; uri: %s; response: %s", apperror.ErrInternal, requestId, uri, string(data))
-	}
-
-	resp.Data.CurrencyID = currencyID
-	res, err := resp.Data.PriceAndCapList()
+	res, err := resp.ImportData(currencyID, ts)
 	if err != nil {
 		c.logger.Error("error while convertation result", zap.String(log_key.ApiClient, Name), zap.String(log_key.Func, funcName), zap.Error(err))
 		return nil, fmt.Errorf(funcName+" [%w] error while convertation result; requestId: %s; uri: %s; response: %s; error: %w;", apperror.ErrInternal, requestId, uri, string(data), err)

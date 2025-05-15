@@ -5,6 +5,7 @@ import (
 	"info/internal/domain/oracul_daily_balance_stats"
 	"info/internal/domain/oracul_holder_stats"
 	"info/internal/domain/oracul_speedometers"
+	"time"
 )
 
 type GetHoldersStatsResponse struct {
@@ -16,12 +17,27 @@ type GetHoldersStatsResponse struct {
 	DailyBalanceStats   DailyBalanceStatsList `json:"daily_balance_stats"`
 }
 
-func (r *GetHoldersStatsResponse) ImportData() *oracul_analytics.ImportData {
-
+func (r *GetHoldersStatsResponse) ImportData(currencyID uint, ts time.Time) (*oracul_analytics.ImportData, error) {
+	oraculDailyBalanceStatsList, err := r.DailyBalanceStats.OraculDailyBalanceStatsList(currencyID)
+	if err != nil {
+		return nil, err
+	}
+	return &oracul_analytics.ImportData{
+		OraculAnalytics:             r.OraculAnalytics(currencyID, ts),
+		OraculSpeedometers:          r.Speedometers.OraculSpeedometers(currencyID, ts),
+		OraculHolderStats:           r.HolderStats.OraculHolderStats(currencyID, ts),
+		OraculDailyBalanceStatsList: oraculDailyBalanceStatsList,
+	}, nil
 }
 
-func (r *GetHoldersStatsResponse) OraculAnalytics() *oracul_analytics.OraculAnalytics {
-
+func (r *GetHoldersStatsResponse) OraculAnalytics(currencyID uint, ts time.Time) *oracul_analytics.OraculAnalytics {
+	return &oracul_analytics.OraculAnalytics{
+		CurrencyID:          currencyID,
+		WhalesConcentration: r.WhalesConcentration,
+		WormIndex:           r.WormIndex,
+		GrowthFuel:          r.GrowthFuel,
+		Ts:                  ts,
+	}
 }
 
 type Speedometers struct {
@@ -35,8 +51,20 @@ type SpeedometersItem struct {
 	Volume   float64 `json:"volume"`
 }
 
-func (e *Speedometers) OraculSpeedometers() *oracul_speedometers.OraculSpeedometers {
-
+func (e *Speedometers) OraculSpeedometers(currencyID uint, ts time.Time) *oracul_speedometers.OraculSpeedometers {
+	return &oracul_speedometers.OraculSpeedometers{
+		CurrencyID:        currencyID,
+		WhalesBuyRate:     e.Whales.BuyRate,
+		WhalesSellRate:    e.Whales.SellRate,
+		WhalesVolume:      e.Whales.Volume,
+		InvestorsBuyRate:  e.Investors.BuyRate,
+		InvestorsSellRate: e.Investors.SellRate,
+		InvestorsVolume:   e.Investors.Volume,
+		RetailersBuyRate:  e.Retailers.BuyRate,
+		RetailersSellRate: e.Retailers.SellRate,
+		RetailersVolume:   e.Retailers.Volume,
+		Ts:                ts,
+	}
 }
 
 type HolderStats struct {
@@ -49,8 +77,17 @@ type HolderStatsItem struct {
 	TotalHolders uint    `json:"total_holders"`
 }
 
-func (e *HolderStats) OraculHolderStats() *oracul_holder_stats.OraculHolderStats {
-
+func (e *HolderStats) OraculHolderStats(currencyID uint, ts time.Time) *oracul_holder_stats.OraculHolderStats {
+	return &oracul_holder_stats.OraculHolderStats{
+		CurrencyID:            currencyID,
+		WhalesVolume:          e.Whales.Volume,
+		WhalesTotalHolders:    e.Whales.TotalHolders,
+		InvestorsVolume:       e.Investors.Volume,
+		InvestorsTotalHolders: e.Investors.TotalHolders,
+		RetailersVolume:       e.Retailers.Volume,
+		RetailersTotalHolders: e.Retailers.TotalHolders,
+		Ts:                    ts,
+	}
 }
 
 type DailyBalanceStatsList map[string]DailyBalanceStats
@@ -64,10 +101,38 @@ type DailyBalanceStatsItem struct {
 	TotalHolders uint    `json:"total_holders"`
 }
 
-func (e *DailyBalanceStatsList) OraculDailyBalanceStatsList() *oracul_daily_balance_stats.OraculDailyBalanceStatsList {
+func (e *DailyBalanceStatsList) OraculDailyBalanceStatsList(currencyID uint) (*oracul_daily_balance_stats.OraculDailyBalanceStatsList, error) {
+	if e == nil || len(*e) == 0 {
+		return nil, nil
+	}
+	var err error
+	var date string
+	var d time.Time
+	var item DailyBalanceStats
+	var resItem *oracul_daily_balance_stats.OraculDailyBalanceStats
+	res := make(oracul_daily_balance_stats.OraculDailyBalanceStatsList, 0, len(*e))
 
+	for date, item = range *e {
+		d, err = time.Parse(time.DateOnly, date)
+		if err != nil {
+			return nil, err
+		}
+		resItem = item.OraculDailyBalanceStats(currencyID, d)
+		res = append(res, *resItem)
+	}
+
+	return &res, nil
 }
 
-func (e *DailyBalanceStats) OraculDailyBalanceStats() *oracul_daily_balance_stats.OraculDailyBalanceStats {
-
+func (e *DailyBalanceStats) OraculDailyBalanceStats(currencyID uint, d time.Time) *oracul_daily_balance_stats.OraculDailyBalanceStats {
+	return &oracul_daily_balance_stats.OraculDailyBalanceStats{
+		CurrencyID:            currencyID,
+		WhalesBalance:         e.Whales.Balance,
+		WhalesTotalHolders:    e.Whales.TotalHolders,
+		InvestorsBalance:      e.Investors.Balance,
+		InvestorsTotalHolders: e.Investors.TotalHolders,
+		RetailersBalance:      e.Retailers.Balance,
+		RetailersTotalHolders: e.Retailers.TotalHolders,
+		D:                     d,
+	}
 }
