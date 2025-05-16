@@ -28,4 +28,5 @@ type ReadRepository interface {
 	MGet(ctx context.Context, IDs *[]uint) (*CurrencyList, error)
 	MGetBySlug(ctx context.Context, slugs *[]string) (*CurrencyList, error)
 	GetAll(ctx context.Context) (*CurrencyList, error)
+	MGetTokenAddress(ctx context.Context, IDs *[]uint) (*TokenAddressList, error)
 }

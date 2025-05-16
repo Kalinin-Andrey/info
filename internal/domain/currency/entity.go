@@ -16,6 +16,14 @@ type ImportMaxTime struct {
 	Concentration *time.Time
 }
 
+type TokenAddress struct {
+	CurrencyID uint
+	Blockchain string
+	Address    string
+}
+
+type TokenAddressList []TokenAddress
+
 type Currency struct {
 	ID                            uint
 	Symbol                        string
@@ -30,6 +38,7 @@ type Currency struct {
 	CmcRank                       uint
 	AddedAt                       time.Time
 	Platform                      *CurrencyPlatform
+	TokenAddress                  *TokenAddress
 }
 
 func (e *Currency) Validate() error {

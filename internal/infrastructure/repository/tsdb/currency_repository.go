@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"info/internal/domain"
 	"info/internal/domain/currency"
 	"info/internal/pkg/apperror"
@@ -34,6 +33,7 @@ const (
 	currency_sql_GetBySlug                 = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE slug = $1;"
 	currency_sql_GetImportMaxTimeForUpdate = "SELECT currency_id, price_and_cap, concentration FROM cmc.import_max_time WHERE currency_id = ANY($1) FOR UPDATE;"
 	currency_sql_MGet                      = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE id = any($1);"
+	currency_sql_MGetTokenAddress          = "SELECT currency_id, blockchain, address FROM cmc.token_address WHERE currency_id = any($1);"
 	currency_sql_MGetBySlug                = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE slug = any($1);"
 	currency_sql_GetAll                    = "SELECT id, symbol, slug, name, is_for_observing, circulating_supply, self_reported_circulating_supply, total_supply, max_supply, latest_price, cmc_rank, date_added, platform FROM cmc.currency WHERE is_for_observing = TRUE;"
 	currency_sql_Create                    = "INSERT INTO cmc.currency(id, symbol, slug, name, is_for_observing) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id;"
@@ -418,6 +418,46 @@ func (r CurrencyRepository) MUpsert(ctx context.Context, entities *currency.Curr
 	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
 	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
 	return nil
+}
+
+func (r *CurrencyRepository) MGetTokenAddress(ctx context.Context, IDs *[]uint) (*currency.TokenAddressList, error) {
+	//ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	//defer cancel()
+	const metricName = "CurrencyRepository.MGetTokenAddress"
+
+	var entity currency.TokenAddress
+	res := make(currency.TokenAddressList, 0, len(*IDs))
+
+	start := time.Now().UTC()
+	rows, err := r.db.Query(ctx, currency_sql_MGetTokenAddress, *IDs)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
+			r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
+			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
+			return nil, apperror.ErrNotFound
+		}
+		r.metrics.SqlMetrics.Inc(metricName, metricsFail)
+		r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
+		return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_MGetTokenAddress, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err = rows.Scan(&entity.CurrencyID, &entity.Blockchain, &entity.Address); err != nil {
+			r.metrics.SqlMetrics.Inc(metricName, metricsFail)
+			r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsFail)
+			return nil, fmt.Errorf("[%w] %s query error; query: %s; error: %w", apperror.ErrInternal, metricName, currency_sql_MGetTokenAddress, err)
+		}
+		res = append(res, entity)
+	}
+	r.metrics.SqlMetrics.Inc(metricName, metricsSuccess)
+	r.metrics.SqlMetrics.WriteTiming(start, metricName, metricsSuccess)
+
+	if len(res) == 0 {
+		return nil, apperror.ErrNotFound
+	}
+
+	return &res, nil
 }
 
 /*
