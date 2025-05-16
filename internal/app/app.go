@@ -72,15 +72,15 @@ func New(ctx context.Context, cfg *config.Configuration) *App {
 
 func (app *App) SetupServices() {
 	app.Domain = &Domain{
-		PriceAndCap:             price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
-		Concentration:           concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
-		PortfolioItem:           portfolio_item.NewService(tsdb_cluster.NewPortfolioItemReplicaSet(app.Infra.TsDB), app.Integration.CmcApi),
+		PriceAndCap:             price_and_cap.NewService(tsdb_cluster.NewPriceAndCapReplicaSet(app.Infra.TsDB), app.Integration.CmcAPI),
+		Concentration:           concentration.NewService(tsdb_cluster.NewConcentrationReplicaSet(app.Infra.TsDB), app.Integration.CmcAPI),
+		PortfolioItem:           portfolio_item.NewService(tsdb_cluster.NewPortfolioItemReplicaSet(app.Infra.TsDB), app.Integration.CmcAPI),
 		OraculDailyBalanceStats: oracul_daily_balance_stats.NewService(tsdb_cluster.NewOraculDailyBalanceStatsReplicaSet(app.Infra.TsDB)),
 		OraculHolderStats:       oracul_holder_stats.NewService(tsdb_cluster.NewOraculHolderStatsReplicaSet(app.Infra.TsDB)),
 		OraculSpeedometers:      oracul_speedometers.NewService(tsdb_cluster.NewOraculSpeedometersReplicaSet(app.Infra.TsDB)),
 	}
-	app.Domain.OraculAnalytics = oracul_analytics.NewService(tsdb_cluster.NewOraculAnalyticsReplicaSet(app.Infra.TsDB), app.Domain.OraculSpeedometers, app.Domain.OraculHolderStats, app.Domain.OraculDailyBalanceStats)
-	app.Domain.Currency = currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB), app.Domain.PriceAndCap, app.Domain.Concentration, app.Integration.CmcApi, app.Integration.CmcProApi)
+	app.Domain.OraculAnalytics = oracul_analytics.NewService(tsdb_cluster.NewOraculAnalyticsReplicaSet(app.Infra.TsDB), app.Integration.OraculAnalyticsAPI, app.Domain.OraculSpeedometers, app.Domain.OraculHolderStats, app.Domain.OraculDailyBalanceStats)
+	app.Domain.Currency = currency.NewService(tsdb_cluster.NewCurrencyReplicaSet(app.Infra.TsDB), app.Domain.PriceAndCap, app.Domain.Concentration, app.Domain.OraculAnalytics, app.Integration.CmcAPI, app.Integration.CmcProAPI)
 }
 
 func (app *App) Run() error {

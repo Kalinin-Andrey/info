@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"info/internal/domain"
 	"info/internal/domain/concentration"
+	"info/internal/domain/oracul_analytics"
 	"info/internal/domain/price_and_cap"
 	"info/internal/pkg/apperror"
 	"math"
@@ -27,20 +28,22 @@ type CmcProApi interface {
 }
 
 type Service struct {
-	replicaSet    ReplicaSet
-	priceAndCap   *price_and_cap.Service
-	concentration *concentration.Service
-	cmcApi        CmcApi
-	cmcProApi     CmcProApi
+	replicaSet      ReplicaSet
+	priceAndCap     *price_and_cap.Service
+	concentration   *concentration.Service
+	oraculAnalytics *oracul_analytics.Service
+	cmcApi          CmcApi
+	cmcProApi       CmcProApi
 }
 
-func NewService(replicaSet ReplicaSet, priceAndCap *price_and_cap.Service, concentration *concentration.Service, cmcApi CmcApi, cmcProApi CmcProApi) *Service {
+func NewService(replicaSet ReplicaSet, priceAndCap *price_and_cap.Service, concentration *concentration.Service, oraculAnalytics *oracul_analytics.Service, cmcApi CmcApi, cmcProApi CmcProApi) *Service {
 	return &Service{
-		replicaSet:    replicaSet,
-		priceAndCap:   priceAndCap,
-		concentration: concentration,
-		cmcApi:        cmcApi,
-		cmcProApi:     cmcProApi,
+		replicaSet:      replicaSet,
+		priceAndCap:     priceAndCap,
+		concentration:   concentration,
+		oraculAnalytics: oraculAnalytics,
+		cmcApi:          cmcApi,
+		cmcProApi:       cmcProApi,
 	}
 }
 
@@ -125,6 +128,16 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 		}
 
 		importMaxTimeMap[currency.ID] = importMaxTimeItem
+	}
+
+	tokenAddressList, err := s.replicaSet.ReadRepo().MGetTokenAddress(ctx, currencyList.IDs())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("OraculAnalytics.Import")
+	if err = s.oraculAnalytics.Import(ctx, tokenAddressList); err != nil {
+		return err
 	}
 
 	return s.replicaSet.WriteRepo().MUpsertImportMaxTimeMapTx(ctx, tx, importMaxTimeMap)

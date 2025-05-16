@@ -3,14 +3,17 @@ package integration
 import (
 	"info/internal/integration/cmc_api"
 	"info/internal/integration/cmc_pro_api"
+	"info/internal/integration/oracul_analytics_api"
 )
 
 type Config struct {
-	CmcApi    *cmc_api.Config
-	CmcProApi *cmc_pro_api.Config
+	CmcAPI             *cmc_api.Config
+	CmcProAPI          *cmc_pro_api.Config
+	OraculAnalyticsAPI *oracul_analytics_api.Config
 }
 
 type UsageConfig struct {
-	CmcApi    bool
-	CmcProApi bool
+	CmcAPI             bool
+	CmcProAPI          bool
+	OraculAnalyticsAPI bool
 }

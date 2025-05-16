@@ -6,6 +6,7 @@ import (
 	"info/internal/domain/oracul_daily_balance_stats"
 	"info/internal/domain/oracul_holder_stats"
 	"info/internal/domain/oracul_speedometers"
+	"time"
 )
 
 type OraculAnalyticsAPIClient interface {
@@ -56,6 +57,7 @@ func (s *Service) Import(ctx context.Context, tokenAddressList *currency.TokenAd
 		if err = s.upsertImportData(ctx, importData); err != nil {
 			return err
 		}
+		time.Sleep(5 * time.Second)
 	}
 
 	return nil

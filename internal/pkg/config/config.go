@@ -108,23 +108,23 @@ func Get() (*Configuration, error) {
 	var st, varName string
 	var val interface{}
 
-	if config.Integration.CmcApi != nil {
+	if config.Integration.CmcAPI != nil {
 		varName = "INTEGRATION_CMCAPI_COOKIE"
 		val = viper.Get(varName)
 		if st, ok = val.(string); !ok {
 			return nil, fmt.Errorf("Can not convert "+varName+" = %v to string.", val)
 		} else {
-			config.Integration.CmcApi.Cookie = st
+			config.Integration.CmcAPI.Cookie = st
 		}
 	}
 
-	if config.Integration.CmcProApi != nil {
+	if config.Integration.CmcProAPI != nil {
 		varName = "INTEGRATION_CMCPROAPI_TOKEN"
 		val = viper.Get(varName)
 		if st, ok = val.(string); !ok {
 			return nil, fmt.Errorf("Can not convert "+varName+" = %v to string.", val)
 		} else {
-			config.Integration.CmcProApi.Token = st
+			config.Integration.CmcProAPI.Token = st
 		}
 	}
 

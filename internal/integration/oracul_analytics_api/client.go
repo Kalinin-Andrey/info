@@ -37,7 +37,7 @@ type OraculAnalyticsAPIClient struct {
 }
 
 const (
-	Name                  = "OraculAnalyticsAPIClient"
+	Name                  = "OraculAnalyticsAPI"
 	ContentType           = "application/json; charset=utf-8"
 	HeaderParam_RequestId = "X-Request-Id"
 	HeaderParam_Cookie    = "Cookie"
