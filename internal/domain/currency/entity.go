@@ -16,14 +16,6 @@ type ImportMaxTime struct {
 	Concentration *time.Time
 }
 
-type TokenAddress struct {
-	CurrencyID uint
-	Blockchain string
-	Address    string
-}
-
-type TokenAddressList []TokenAddress
-
 type Currency struct {
 	ID                            uint
 	Symbol                        string
@@ -104,3 +96,11 @@ func (e *CurrencyPlatform) Scan(src any) error {
 	}
 	return json.Unmarshal(data, e)
 }
+
+type TokenAddress struct {
+	CurrencyID uint
+	Blockchain string
+	Address    string
+}
+
+type TokenAddressList []TokenAddress

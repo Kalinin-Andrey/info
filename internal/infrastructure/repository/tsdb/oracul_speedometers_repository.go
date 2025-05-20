@@ -24,7 +24,7 @@ func NewOraculSpeedometersRepository(repository *Repository) *OraculSpeedometers
 }
 
 const (
-	oracul_speedometers_sql_Upsert = "INSERT INTO oracul.analytics(currency_id, whales_buy_rate, whales_sell_rate, whales_volume, investors_buy_rate, investors_sell_rate, investors_volume, retailers_buy_rate, retailers_sell_rate, retailers_volume, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (currency_id, ts) DO UPDATE SET whales_buy_rate = EXCLUDED.whales_buy_rate, whales_sell_rate = EXCLUDED.whales_sell_rate, whales_volume = EXCLUDED.whales_volume, investors_buy_rate = EXCLUDED.investors_buy_rate, investors_sell_rate = EXCLUDED.investors_sell_rate, investors_volume = EXCLUDED.investors_volume, retailers_buy_rate = EXCLUDED.retailers_buy_rate, retailers_sell_rate = EXCLUDED.retailers_sell_rate, retailers_volume = EXCLUDED.retailers_volume;"
+	oracul_speedometers_sql_Upsert = "INSERT INTO oracul.speedometers(currency_id, whales_buy_rate, whales_sell_rate, whales_volume, investors_buy_rate, investors_sell_rate, investors_volume, retailers_buy_rate, retailers_sell_rate, retailers_volume, ts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (currency_id, ts) DO UPDATE SET whales_buy_rate = EXCLUDED.whales_buy_rate, whales_sell_rate = EXCLUDED.whales_sell_rate, whales_volume = EXCLUDED.whales_volume, investors_buy_rate = EXCLUDED.investors_buy_rate, investors_sell_rate = EXCLUDED.investors_sell_rate, investors_volume = EXCLUDED.investors_volume, retailers_buy_rate = EXCLUDED.retailers_buy_rate, retailers_sell_rate = EXCLUDED.retailers_sell_rate, retailers_volume = EXCLUDED.retailers_volume;"
 )
 
 func (r *OraculSpeedometersRepository) Upsert(ctx context.Context, entity *oracul_speedometers.OraculSpeedometers) error {

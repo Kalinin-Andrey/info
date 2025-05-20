@@ -2,10 +2,11 @@ package oracul_analytics
 
 import (
 	"context"
-	"info/internal/domain/currency"
+	"fmt"
 	"info/internal/domain/oracul_daily_balance_stats"
 	"info/internal/domain/oracul_holder_stats"
 	"info/internal/domain/oracul_speedometers"
+	"sort"
 	"time"
 )
 
@@ -26,15 +27,19 @@ type Service struct {
 	oraculSpeedometers       *oracul_speedometers.Service
 	oraculHolderStats        *oracul_holder_stats.Service
 	oraculDailyBalanceStats  *oracul_daily_balance_stats.Service
+	supportedBlockchains     *sort.StringSlice
 }
 
 func NewService(replicaSet ReplicaSet, oraculAnalyticsAPIClient OraculAnalyticsAPIClient, oraculSpeedometers *oracul_speedometers.Service, oraculHolderStats *oracul_holder_stats.Service, oraculDailyBalanceStats *oracul_daily_balance_stats.Service) *Service {
+	s := sort.StringSlice([]string{"ETH", "BNB", "POL", "FTM", "OP"})
+	s.Sort()
 	return &Service{
 		replicaSet:               replicaSet,
 		oraculAnalyticsAPIClient: oraculAnalyticsAPIClient,
 		oraculSpeedometers:       oraculSpeedometers,
 		oraculHolderStats:        oraculHolderStats,
 		oraculDailyBalanceStats:  oraculDailyBalanceStats,
+		supportedBlockchains:     &s,
 	}
 }
 
@@ -42,23 +47,39 @@ func (s *Service) Create(ctx context.Context, entity *OraculAnalytics) error {
 	return s.replicaSet.WriteRepo().Upsert(ctx, entity)
 }
 
-func (s *Service) Import(ctx context.Context, tokenAddressList *currency.TokenAddressList) (err error) {
+func (s *Service) IsBlockchainSupported(blockchain string) bool {
+	if blockchain == "" {
+		return false
+	}
+	i := s.supportedBlockchains.Search(blockchain)
+	return i < len(*s.supportedBlockchains) && (*s.supportedBlockchains)[i] == blockchain
+}
+
+func (s *Service) Import(ctx context.Context, tokenAddressList *TokenAddressList) (err error) {
 	if tokenAddressList == nil || len(*tokenAddressList) == 0 {
 		return nil
 	}
-	var tokenAddress currency.TokenAddress
+	var tokenAddress TokenAddress
 	var importData *ImportData
 
+	fmt.Println("oracul_analytics.Service.Import - Started:")
 	for _, tokenAddress = range *tokenAddressList {
+		if !s.IsBlockchainSupported(tokenAddress.Blockchain) {
+			continue
+		}
+		fmt.Printf("	%d	...\n", tokenAddress.CurrencyID)
+
+		time.Sleep(5 * time.Second)
 		importData, err = s.oraculAnalyticsAPIClient.GetHoldersStats(ctx, tokenAddress.CurrencyID, tokenAddress.Blockchain, tokenAddress.Address)
 		if err != nil {
-			return err
+			fmt.Printf("oraculAnalyticsAPIClient.GetHoldersStats error CurrencyID: %d, error: %w\n", tokenAddress.CurrencyID, err)
+			continue
 		}
 		if err = s.upsertImportData(ctx, importData); err != nil {
 			return err
 		}
-		time.Sleep(5 * time.Second)
 	}
+	fmt.Println("oracul_analytics.Service.Import - Complited!")
 
 	return nil
 }

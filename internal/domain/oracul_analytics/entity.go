@@ -17,3 +17,11 @@ type OraculAnalytics struct {
 func (e *OraculAnalytics) Validate() error {
 	return nil
 }
+
+type TokenAddress struct {
+	CurrencyID uint
+	Blockchain string
+	Address    string
+}
+
+type TokenAddressList []TokenAddress

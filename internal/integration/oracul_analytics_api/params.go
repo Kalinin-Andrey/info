@@ -5,39 +5,56 @@ import (
 	"info/internal/domain/oracul_daily_balance_stats"
 	"info/internal/domain/oracul_holder_stats"
 	"info/internal/domain/oracul_speedometers"
+	"strconv"
 	"time"
 )
 
 type GetHoldersStatsResponse struct {
-	WhalesConcentration float64               `json:"whales_concentration"`
-	WormIndex           float64               `json:"worm_index"`
-	GrowthFuel          float64               `json:"growth_fuel"`
+	WhalesConcentration string                `json:"whales_concentration"`
+	WormIndex           string                `json:"worm_index"`
+	GrowthFuel          string                `json:"growth_fuel"`
 	Speedometers        *Speedometers         `json:"speedometers"`
 	HolderStats         *HolderStats          `json:"holder_stats"`
 	DailyBalanceStats   DailyBalanceStatsList `json:"daily_balance_stats"`
 }
 
-func (r *GetHoldersStatsResponse) ImportData(currencyID uint, ts time.Time) (*oracul_analytics.ImportData, error) {
-	oraculDailyBalanceStatsList, err := r.DailyBalanceStats.OraculDailyBalanceStatsList(currencyID)
-	if err != nil {
+func (r *GetHoldersStatsResponse) ImportData(currencyID uint, ts time.Time) (res *oracul_analytics.ImportData, err error) {
+
+	res = &oracul_analytics.ImportData{}
+
+	if res.OraculAnalytics, err = r.OraculAnalytics(currencyID, ts); err != nil {
 		return nil, err
 	}
-	return &oracul_analytics.ImportData{
-		OraculAnalytics:             r.OraculAnalytics(currencyID, ts),
-		OraculSpeedometers:          r.Speedometers.OraculSpeedometers(currencyID, ts),
-		OraculHolderStats:           r.HolderStats.OraculHolderStats(currencyID, ts),
-		OraculDailyBalanceStatsList: oraculDailyBalanceStatsList,
-	}, nil
+	if res.OraculSpeedometers, err = r.Speedometers.OraculSpeedometers(currencyID, ts); err != nil {
+		return nil, err
+	}
+	if res.OraculHolderStats, err = r.HolderStats.OraculHolderStats(currencyID, ts); err != nil {
+		return nil, err
+	}
+	if res.OraculDailyBalanceStatsList, err = r.DailyBalanceStats.OraculDailyBalanceStatsList(currencyID); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
-func (r *GetHoldersStatsResponse) OraculAnalytics(currencyID uint, ts time.Time) *oracul_analytics.OraculAnalytics {
-	return &oracul_analytics.OraculAnalytics{
-		CurrencyID:          currencyID,
-		WhalesConcentration: r.WhalesConcentration,
-		WormIndex:           r.WormIndex,
-		GrowthFuel:          r.GrowthFuel,
-		Ts:                  ts,
+func (r *GetHoldersStatsResponse) OraculAnalytics(currencyID uint, ts time.Time) (res *oracul_analytics.OraculAnalytics, err error) {
+	res = &oracul_analytics.OraculAnalytics{
+		CurrencyID: currencyID,
+		Ts:         ts,
 	}
+
+	if res.WhalesConcentration, err = strconv.ParseFloat(r.WhalesConcentration, 64); err != nil {
+		return nil, err
+	}
+	if res.WormIndex, err = strconv.ParseFloat(r.WormIndex, 64); err != nil {
+		return nil, err
+	}
+	if res.GrowthFuel, err = strconv.ParseFloat(r.GrowthFuel, 64); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 type Speedometers struct {
@@ -46,25 +63,46 @@ type Speedometers struct {
 	Retailers *SpeedometersItem `json:"retailers"`
 }
 type SpeedometersItem struct {
-	BuyRate  float64 `json:"buy_rate"`
-	SellRate float64 `json:"sell_rate"`
-	Volume   float64 `json:"volume"`
+	BuyRate  string `json:"buy_rate"`
+	SellRate string `json:"sell_rate"`
+	Volume   string `json:"volume"`
 }
 
-func (e *Speedometers) OraculSpeedometers(currencyID uint, ts time.Time) *oracul_speedometers.OraculSpeedometers {
-	return &oracul_speedometers.OraculSpeedometers{
-		CurrencyID:        currencyID,
-		WhalesBuyRate:     e.Whales.BuyRate,
-		WhalesSellRate:    e.Whales.SellRate,
-		WhalesVolume:      e.Whales.Volume,
-		InvestorsBuyRate:  e.Investors.BuyRate,
-		InvestorsSellRate: e.Investors.SellRate,
-		InvestorsVolume:   e.Investors.Volume,
-		RetailersBuyRate:  e.Retailers.BuyRate,
-		RetailersSellRate: e.Retailers.SellRate,
-		RetailersVolume:   e.Retailers.Volume,
-		Ts:                ts,
+func (e *Speedometers) OraculSpeedometers(currencyID uint, ts time.Time) (res *oracul_speedometers.OraculSpeedometers, err error) {
+	res = &oracul_speedometers.OraculSpeedometers{
+		CurrencyID: currencyID,
+		Ts:         ts,
 	}
+
+	if res.WhalesBuyRate, err = strconv.ParseFloat(e.Whales.BuyRate, 64); err != nil {
+		return nil, err
+	}
+	if res.WhalesSellRate, err = strconv.ParseFloat(e.Whales.SellRate, 64); err != nil {
+		return nil, err
+	}
+	if res.WhalesVolume, err = strconv.ParseFloat(e.Whales.Volume, 64); err != nil {
+		return nil, err
+	}
+	if res.InvestorsBuyRate, err = strconv.ParseFloat(e.Investors.BuyRate, 64); err != nil {
+		return nil, err
+	}
+	if res.InvestorsSellRate, err = strconv.ParseFloat(e.Investors.SellRate, 64); err != nil {
+		return nil, err
+	}
+	if res.InvestorsVolume, err = strconv.ParseFloat(e.Investors.Volume, 64); err != nil {
+		return nil, err
+	}
+	if res.RetailersBuyRate, err = strconv.ParseFloat(e.Retailers.BuyRate, 64); err != nil {
+		return nil, err
+	}
+	if res.RetailersSellRate, err = strconv.ParseFloat(e.Retailers.SellRate, 64); err != nil {
+		return nil, err
+	}
+	if res.RetailersVolume, err = strconv.ParseFloat(e.Retailers.Volume, 64); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 type HolderStats struct {
@@ -73,21 +111,30 @@ type HolderStats struct {
 	Retailers *HolderStatsItem `json:"retailers"`
 }
 type HolderStatsItem struct {
-	Volume       float64 `json:"volume"`
-	TotalHolders uint    `json:"total_holders"`
+	Volume       string `json:"volume"`
+	TotalHolders uint   `json:"total_holders"`
 }
 
-func (e *HolderStats) OraculHolderStats(currencyID uint, ts time.Time) *oracul_holder_stats.OraculHolderStats {
-	return &oracul_holder_stats.OraculHolderStats{
+func (e *HolderStats) OraculHolderStats(currencyID uint, ts time.Time) (res *oracul_holder_stats.OraculHolderStats, err error) {
+	res = &oracul_holder_stats.OraculHolderStats{
 		CurrencyID:            currencyID,
-		WhalesVolume:          e.Whales.Volume,
 		WhalesTotalHolders:    e.Whales.TotalHolders,
-		InvestorsVolume:       e.Investors.Volume,
 		InvestorsTotalHolders: e.Investors.TotalHolders,
-		RetailersVolume:       e.Retailers.Volume,
 		RetailersTotalHolders: e.Retailers.TotalHolders,
 		Ts:                    ts,
 	}
+
+	if res.WhalesVolume, err = strconv.ParseFloat(e.Whales.Volume, 64); err != nil {
+		return nil, err
+	}
+	if res.InvestorsVolume, err = strconv.ParseFloat(e.Investors.Volume, 64); err != nil {
+		return nil, err
+	}
+	if res.RetailersVolume, err = strconv.ParseFloat(e.Retailers.Volume, 64); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 type DailyBalanceStatsList map[string]DailyBalanceStats
@@ -97,8 +144,8 @@ type DailyBalanceStats struct {
 	Retailers *DailyBalanceStatsItem `json:"retailers"`
 }
 type DailyBalanceStatsItem struct {
-	Balance      float64 `json:"balance"`
-	TotalHolders uint    `json:"total_holders"`
+	Balance      string `json:"balance"`
+	TotalHolders uint   `json:"total_holders"`
 }
 
 func (e *DailyBalanceStatsList) OraculDailyBalanceStatsList(currencyID uint) (*oracul_daily_balance_stats.OraculDailyBalanceStatsList, error) {
@@ -117,22 +164,33 @@ func (e *DailyBalanceStatsList) OraculDailyBalanceStatsList(currencyID uint) (*o
 		if err != nil {
 			return nil, err
 		}
-		resItem = item.OraculDailyBalanceStats(currencyID, d)
+		if resItem, err = item.OraculDailyBalanceStats(currencyID, d); err != nil {
+			return nil, err
+		}
 		res = append(res, *resItem)
 	}
 
 	return &res, nil
 }
 
-func (e *DailyBalanceStats) OraculDailyBalanceStats(currencyID uint, d time.Time) *oracul_daily_balance_stats.OraculDailyBalanceStats {
-	return &oracul_daily_balance_stats.OraculDailyBalanceStats{
+func (e *DailyBalanceStats) OraculDailyBalanceStats(currencyID uint, d time.Time) (res *oracul_daily_balance_stats.OraculDailyBalanceStats, err error) {
+	res = &oracul_daily_balance_stats.OraculDailyBalanceStats{
 		CurrencyID:            currencyID,
-		WhalesBalance:         e.Whales.Balance,
 		WhalesTotalHolders:    e.Whales.TotalHolders,
-		InvestorsBalance:      e.Investors.Balance,
 		InvestorsTotalHolders: e.Investors.TotalHolders,
-		RetailersBalance:      e.Retailers.Balance,
 		RetailersTotalHolders: e.Retailers.TotalHolders,
 		D:                     d,
 	}
+
+	if res.WhalesBalance, err = strconv.ParseFloat(e.Whales.Balance, 64); err != nil {
+		return nil, err
+	}
+	if res.InvestorsBalance, err = strconv.ParseFloat(e.Investors.Balance, 64); err != nil {
+		return nil, err
+	}
+	if res.RetailersBalance, err = strconv.ParseFloat(e.Retailers.Balance, 64); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

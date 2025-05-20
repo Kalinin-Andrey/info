@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
+	pgx "github.com/jackc/pgx/v5"
 	"info/internal/domain/portfolio_item"
 	"info/internal/pkg/apperror"
 	"strconv"

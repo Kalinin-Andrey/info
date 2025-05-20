@@ -130,17 +130,21 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 		importMaxTimeMap[currency.ID] = importMaxTimeItem
 	}
 
+	if err = s.replicaSet.WriteRepo().MUpsertImportMaxTimeMapTx(ctx, tx, importMaxTimeMap); err != nil {
+		return err
+	}
+
 	tokenAddressList, err := s.replicaSet.ReadRepo().MGetTokenAddress(ctx, currencyList.IDs())
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("OraculAnalytics.Import")
-	if err = s.oraculAnalytics.Import(ctx, tokenAddressList); err != nil {
+	fmt.Println("OraculAnalytics.Import")
+	if err = s.oraculAnalytics.Import(ctx, TokenAddressList2OraculAnalyticsTokenAddressList(tokenAddressList)); err != nil {
 		return err
 	}
 
-	return s.replicaSet.WriteRepo().MUpsertImportMaxTimeMapTx(ctx, tx, importMaxTimeMap)
+	return nil
 }
 
 func (s *Service) baseImport(ctx context.Context, listOfCurrencySlugs *[]string) (currencyList *CurrencyList, err error) {
@@ -394,4 +398,27 @@ func (s *Service) calcWhaleFall(currency *Currency, priceAndCapList *price_and_c
 
 func round(v float64) float64 {
 	return math.Round(v*100) / 100
+}
+
+func TokenAddress2OraculAnalyticsTokenAddress(e *TokenAddress) *oracul_analytics.TokenAddress {
+	return &oracul_analytics.TokenAddress{
+		CurrencyID: e.CurrencyID,
+		Blockchain: e.Blockchain,
+		Address:    e.Address,
+	}
+}
+
+func TokenAddressList2OraculAnalyticsTokenAddressList(l *TokenAddressList) *oracul_analytics.TokenAddressList {
+	if l == nil || len(*l) == 0 {
+		return nil
+	}
+
+	res := make(oracul_analytics.TokenAddressList, 0, len(*l))
+	var item TokenAddress
+
+	for _, item = range *l {
+		res = append(res, *TokenAddress2OraculAnalyticsTokenAddress(&item))
+	}
+
+	return &res
 }
