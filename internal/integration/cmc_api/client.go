@@ -45,6 +45,8 @@ const (
 	ContentType           = "application/json; charset=utf-8"
 	HeaderParam_RequestId = "X-Request-Id"
 	HeaderParam_Cookie    = "Cookie"
+	HeaderParam_Platform  = "platform"
+	HeaderVal_Web         = "web"
 
 	ErrorMessage_Success = "SUCCESS"
 
@@ -112,6 +114,7 @@ func (c *CmcApiClient) getDefaultRequestOptions() (requestId string, options []h
 	return requestId, []httpclient.RequestOption{
 		httpclient.WithContentType(ContentType),
 		httpclient.WithHeader(HeaderParam_RequestId, requestId),
+		httpclient.WithHeader(HeaderParam_Platform, HeaderVal_Web),
 	}
 }
 
