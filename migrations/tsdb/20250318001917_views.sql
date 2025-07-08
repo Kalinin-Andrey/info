@@ -27,8 +27,8 @@ select c.id, c.symbol, round(cast(whales.whales_prc AS numeric), 2) as whales_pr
 from cmc.currency c
          inner join ts on c.id = ts.currency_id
          inner join price on ts.currency_id = price.currency_id and ts.last_ts = price.ts
-         inner join d on c.id = d.currency_id
-         inner join whales on d.currency_id = whales.currency_id and d.last_d = whales.d
+         left join d on c.id = d.currency_id
+         left join whales on d.currency_id = whales.currency_id and d.last_d = whales.d
          inner join min_max on c.id = min_max.currency_id
 where c.is_for_observing = true;
 

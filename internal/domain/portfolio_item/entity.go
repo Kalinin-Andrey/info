@@ -7,13 +7,14 @@ const ()
 type PortfolioItem struct {
 	PortfolioSourceID string
 	CurrencyID        uint
-	Amount            float64
-	CurrentPrice      float64
-	CryptoHoldings    float64
-	HoldingsPercent   float64
-	BuyAvgPrice       float64
-	PlPercentValue    float64
-	PlValue           float64
+	Amount            float64 // кол-во монет
+	CurrentPrice      float64 // тек. цена
+	CryptoHoldings    float64 // тек. общая стоимость
+	HoldingsPercent   float64 // доля в портфеле
+	BuyAvgPrice       float64 // ср. цена покупки
+	PlPercentValue    float64 // изменение в процентах
+	PlValue           float64 // изменения в $
+	TotalBuySpent     float64 // всего вложено
 	UpdatedAt         time.Time
 }
 

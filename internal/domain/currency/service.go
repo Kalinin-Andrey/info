@@ -122,7 +122,7 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 		if importMaxTimeItem.PriceAndCap, err = s.priceAndCap.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.PriceAndCap); err != nil {
 			return err
 		}
-		time.Sleep(11 * time.Second)
+		time.Sleep(12 * time.Second)
 		if importMaxTimeItem.Concentration, err = s.concentration.ImportTx(ctx, tx, importMaxTimeItem.CurrencyID, importMaxTimeItem.Concentration); err != nil {
 			return err
 		}
@@ -134,15 +134,15 @@ func (s *Service) Import(ctx context.Context, listOfCurrencySlugs *[]string) (er
 		return err
 	}
 
-	tokenAddressList, err := s.replicaSet.ReadRepo().MGetTokenAddress(ctx, currencyList.IDs())
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("OraculAnalytics.Import")
-	if err = s.oraculAnalytics.Import(ctx, TokenAddressList2OraculAnalyticsTokenAddressList(tokenAddressList)); err != nil {
-		return err
-	}
+	//tokenAddressList, err := s.replicaSet.ReadRepo().MGetTokenAddress(ctx, currencyList.IDs())
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//fmt.Println("OraculAnalytics.Import")
+	//if err = s.oraculAnalytics.Import(ctx, TokenAddressList2OraculAnalyticsTokenAddressList(tokenAddressList)); err != nil {
+	//	return err
+	//}
 
 	return nil
 }

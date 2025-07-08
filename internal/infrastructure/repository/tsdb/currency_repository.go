@@ -622,4 +622,81 @@ FROM
 WHERE c.is_for_observing = true
 ORDER BY c.cmc_rank;
 
+Сводная таблица V2
+select c.symbol, w.whales_prc, ((GREATEST(c.circulating_supply, c.self_reported_circulating_supply) * c.latest_price)/1000000)::integer as cap, ((coalesce(c.max_supply, c.total_supply) * c.latest_price)/1000000)::integer as fdv, w.to_ath, w.from_atl, oa.whales_concentration, d.bonus, round(cast(coalesce(pit.crypto_holdings, 0) AS numeric), 2) as crypto_holdings, round(cast(coalesce(pit.pl_percent_value, 0) AS numeric), 2) as pl_percent_value
+from currency as c
+left join whales_prc_and_min_max_price as w on c.id = w.id
+left join cw2 as d on c.id = d.id
+left join portfolio_item as pit on pit.portfolio_source_id = '6651f947db928013879d191c' and c.id = pit.currency_id
+left join (
+	select oa.currency_id, oa.whales_concentration
+	from oracul.analytics as oa
+	inner join (
+		select currency_id, max(ts) as ts
+		from oracul.analytics
+		group by currency_id
+	) as d on d.currency_id = oa.currency_id and d.ts = oa.ts
+) as oa on c.id = oa.currency_id
+where c.is_for_observing = true
+order by c.cmc_rank;
+
+Сводная таблица V3
+select c.symbol, w.whales_prc, ((GREATEST(c.circulating_supply, c.self_reported_circulating_supply) * c.latest_price)/1000000)::integer as cap, ((coalesce(c.max_supply, c.total_supply) * c.latest_price)/1000000)::integer as fdv, w.to_ath, w.from_atl, oa.whales_concentration, round(cast(coalesce(pit.buy_avg_price, 0) AS numeric), 2) as buy_avg_price, round(cast(coalesce(pit.current_price, 0) AS numeric), 2) as current_price, round(cast(coalesce(pit.pl_percent_value, 0) AS numeric), 2)*100 as pl_percent_value, round(cast(coalesce(pit.holdings_percent, 0) AS numeric), 2)*100 as holdings_percent, round(cast(coalesce(pit.total_buy_spent, 0) AS numeric), 2) as total_buy_spent, round(cast(coalesce(pit.crypto_holdings, 0) AS numeric), 2) as crypto_holdings
+from currency as c
+left join whales_prc_and_min_max_price as w on c.id = w.id
+left join cw2 as d on c.id = d.id
+left join portfolio_item as pit on pit.portfolio_source_id = '6651f947db928013879d191c' and c.id = pit.currency_id
+left join (
+	select oa.currency_id, oa.whales_concentration
+	from oracul.analytics as oa
+	inner join (
+		select currency_id, max(ts) as ts
+		from oracul.analytics
+		group by currency_id
+	) as d on d.currency_id = oa.currency_id and d.ts = oa.ts
+) as oa on c.id = oa.currency_id
+where c.is_for_observing = true
+order by c.cmc_rank;
+
+select oa.currency_id, oa.whales_concentration
+from oracul.analytics as oa
+inner join (
+	select currency_id, max(ts) as ts
+	from oracul.analytics
+	group by currency_id
+) as d on d.currency_id = oa.currency_id and d.ts = oa.ts;
+
+//	[Oracul] Изменение за период
+with val as (
+	select c.currency_id, c.d, c.whales_balance
+	from oracul.daily_balance_stats as c
+	inner join (
+		select currency_id, max(d) as d
+		from oracul.daily_balance_stats
+		where d <= (now() - interval '$period')::date
+		group by currency_id
+	) as dt on c.currency_id = dt.currency_id and c.d = dt.d
+)
+select v.d as time, c.symbol as text, round(cast(((v.whales_balance - val.whales_balance) * 100)/val.whales_balance AS numeric), 4) as w
+from cmc.currency c
+inner join val on c.id = val.currency_id
+inner join oracul.daily_balance_stats v on v.currency_id = val.currency_id and v.d >= val.d and v.d <= (now() - interval '2 day')::date
+where c.is_for_observing = true AND val.whales_balance > 0
+GROUP BY text, time, w
+ORDER BY time;
+
+
+//	[Oracul] Доля китов (%)
+SELECT
+  $__timeGroup(conc.d,'1d',previous),
+  c.symbol as text,
+  (conc.whales_balance * 100)/(conc.whales_balance + conc.investors_balance + conc.retailers_balance) as w
+FROM
+  oracul.daily_balance_stats AS conc
+  INNER JOIN cmc.currency AS c ON c.id = conc.currency_id
+WHERE c.is_for_observing = true AND conc.whales_balance IS NOT Null AND conc.whales_balance > 0 AND conc.d <= (now() - interval '1 day')::date AND $__timeFilter(conc.d)
+GROUP BY text, time, w
+ORDER BY time;
+
+
 */

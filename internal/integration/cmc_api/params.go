@@ -219,6 +219,7 @@ type PortfolioItem struct {
 	BuyAvgPrice       float64   `json:"buyAvgPrice"`
 	PlPercentValue    float64   `json:"plPercentValue"`
 	PlValue           float64   `json:"plValue"`
+	TotalBuySpent     float64   `json:"totalBuySpent"`
 	UpdatedAt         time.Time `json:"lastUpdated"`
 }
 
@@ -233,6 +234,7 @@ func (e *PortfolioItem) PortfolioItem() *portfolio_item.PortfolioItem {
 		BuyAvgPrice:       e.BuyAvgPrice,
 		PlPercentValue:    e.PlPercentValue,
 		PlValue:           e.PlValue,
+		TotalBuySpent:     e.TotalBuySpent,
 		UpdatedAt:         e.UpdatedAt,
 	}
 }
